@@ -1,30 +1,129 @@
 let queue = [], currentIndex = 0, player, isDriftMode = false, isLooping = false;
 
-// Data persistence
+// User Identity Security Credentials & Offline State Caches
+let authToken = localStorage.getItem("token") || null;
+let currentUsername = localStorage.getItem("username") || "Guest";
 let liked = JSON.parse(localStorage.getItem("liked") || "[]");
 let recent = JSON.parse(localStorage.getItem("recent") || "[]");
 let following = JSON.parse(localStorage.getItem("following") || "{}");
+let authMode = "LOGIN"; 
 
+function checkAuthStatus() {
+    const overlay = document.getElementById("auth-overlay");
+    const statusText = document.getElementById("user-display-status");
+    
+    if (!authToken) {
+        overlay.style.display = "flex";
+        if(statusText) statusText.textContent = "Offline Profile";
+    } else {
+        overlay.style.display = "none";
+        if(statusText) statusText.textContent = `Connected: ${currentUsername}`;
+        loadData("q=Phonk music 2026");
+    }
+}
+
+function toggleAuthMode() {
+    authMode = authMode === "LOGIN" ? "REGISTER" : "LOGIN";
+    document.getElementById("auth-title").textContent = authMode === "LOGIN" ? "Sign In to Melodify" : "Create Account";
+    document.getElementById("auth-submit-btn").textContent = authMode === "LOGIN" ? "LOGIN" : "REGISTER";
+    document.getElementById("auth-switch-prompt").textContent = authMode === "LOGIN" ? "New listener?" : "Already tracking?";
+    document.getElementById("auth-switch-link").textContent = authMode === "LOGIN" ? "Log in" : "Create an account";
+    document.getElementById("auth-error").style.display = "none";
+}
+
+async function handleAuthSubmit() {
+    const username = document.getElementById("auth-user").value.trim();
+    const password = document.getElementById("auth-pass").value;
+    const errorDiv = document.getElementById("auth-error");
+    
+    if(!username || !password) {
+        errorDiv.textContent = "Please fill out all credentials.";
+        errorDiv.style.display = "block";
+        return;
+    }
+
+    const endpoint = authMode === "LOGIN" ? "/api/auth/login" : "/api/auth/register";
+    
+    try {
+        const res = await fetch(endpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, password })
+        });
+        const data = await res.json();
+
+        if (!res.ok) {
+            errorDiv.textContent = data.error || "Authentication failed.";
+            errorDiv.style.display = "block";
+            return;
+        }
+
+        if (authMode === "REGISTER") {
+            authMode = "REGISTER";
+            toggleAuthMode();
+            errorDiv.textContent = "Registration successful! Please sign in.";
+            errorDiv.style.display = "block";
+            errorDiv.style.color = "#22c55e";
+        } else {
+            authToken = data.token;
+            currentUsername = data.username;
+            liked = data.likedTracks || [];
+            following = data.followingArtists || {};
+            
+            localStorage.setItem("token", authToken);
+            localStorage.setItem("username", currentUsername);
+            localStorage.setItem("liked", JSON.stringify(liked));
+            localStorage.setItem("following", JSON.stringify(following));
+
+            document.getElementById("auth-user").value = "";
+            document.getElementById("auth-pass").value = "";
+            checkAuthStatus();
+        }
+    } catch(err) {
+        errorDiv.textContent = "Connection dropped to backend core.";
+        errorDiv.style.display = "block";
+    }
+}
+
+async function syncDataWithCloud() {
+    if (!authToken) return;
+    try {
+        await fetch('/api/user/sync', {
+            method: 'POST',
+            headers: { 
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${authToken}`
+            },
+            body: JSON.stringify({ likedTracks: liked, followingArtists: following })
+        });
+    } catch(e) {
+        console.warn("Background cloud backup sync failed.", e);
+    }
+}
+
+function logout() {
+    localStorage.clear();
+    authToken = null;
+    currentUsername = "Guest";
+    liked = [];
+    following = {};
+    recent = [];
+    window.location.reload();
+}
+
+/* --- YOUTUBE NATIVE CORE ENGINE --- */
 window.onYouTubeIframeAPIReady = () => {
     player = new YT.Player('yt-player', {
         height: '100%', width: '100%',
-        playerVars: { 
-            'autoplay': 1, 'controls': 0, 'enablejsapi': 1,
-            'origin': window.location.origin 
-        },
+        playerVars: { 'autoplay': 1, 'controls': 0, 'enablejsapi': 1, 'origin': window.location.origin },
         events: {
             'onStateChange': (e) => { 
                 if (e.data === YT.PlayerState.ENDED) {
-                    if (isLooping) player.playVideo();
-                    else playNext();
+                    if (isLooping) player.playVideo(); else playNext();
                 }
                 updatePlayBtn();
             },
-            // QoL 2: Auto-skip restricted tracks immediately upon error detection
-            'onError': () => {
-                console.warn("Track unplayable. Skipping forward...");
-                playNext();
-            },
+            'onError': () => playNext(), 
             'onReady': () => {
                 setInterval(updateProgressBar, 1000);
                 setupMediaSession();
@@ -48,8 +147,9 @@ function toggleDriftMode() {
 }
 
 async function loadData(params = "") {
+    if(!authToken) return;
     const grid = document.getElementById("grid");
-    grid.innerHTML = "<div style='padding:40px; opacity:0.3'>SYNCING VAULT...</div>";
+    grid.innerHTML = "<div style='padding:40px; opacity:0.3; font-weight:700;'>SYNCING VAULT DATASTREAM...</div>";
     let refinedParams = params;
     
     if (params.includes("q=") && params.toLowerCase().includes("naomi")) {
@@ -70,7 +170,7 @@ function render() {
     const grid = document.getElementById("grid");
     grid.innerHTML = "";
     if (queue.length === 0) {
-        grid.innerHTML = "<div style='padding:50px; text-align:center; color:#444'>No tracks found.</div>";
+        grid.innerHTML = "<div style='padding:50px; text-align:center; color:#444; font-weight:700;'>No audio tracks located in this matrix block.</div>";
         return;
     }
     queue.forEach((v, i) => {
@@ -81,7 +181,7 @@ function render() {
             <img src="${v.thumbnail}">
             <div class="c-title">${v.title}</div>
             <div style="display:flex; justify-content:space-between; align-items:center">
-                <span style="font-size:10px; color:var(--txt-dim)">${v.artist}</span>
+                <span style="font-size:11px; color:var(--txt-dim); font-weight:600; max-width:110px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${v.artist}</span>
                 <button class="follow-badge ${isFollowed ? 'active' : ''}" 
                         onclick="event.stopPropagation(); toggleFollow('${v.channelId}', '${v.artist}')">
                     ${isFollowed ? 'Following' : '+ Follow'}
@@ -94,7 +194,6 @@ function render() {
 
 function play(i) {
     if (queue.length === 0 || !player) return;
-    // Bounds control wrap-around
     if (i >= queue.length) currentIndex = 0;
     else if (i < 0) currentIndex = queue.length - 1;
     else currentIndex = i;
@@ -114,18 +213,11 @@ function play(i) {
     updateMediaSessionMetadata(v);
 }
 
-// QoL 4: Linear Navigation Controls
 function playNext() { play(currentIndex + 1); }
 function playPrev() { play(currentIndex - 1); }
-
-// QoL 5: Fine-tuned volume controller
-function changeVolume(amount) {
-    if (player && player.setVolume) {
-        player.setVolume(amount);
-    }
-}
-
+function changeVolume(amount) { if (player && player.setVolume) player.setVolume(amount); }
 function togglePlay() { player.getPlayerState() === 1 ? player.pauseVideo() : player.playVideo(); }
+
 function updatePlayBtn() { 
     const btn = document.getElementById("play-btn");
     if(btn && player) btn.textContent = player.getPlayerState() === 1 ? "PAUSE" : "PLAY"; 
@@ -144,7 +236,6 @@ function seek(event) {
     player.seekTo(player.getDuration() * perc);
 }
 
-// QoL 1: System Lockscreen and Media Key integration bindings
 function setupMediaSession() {
     if ('mediaSession' in navigator) {
         navigator.mediaSession.setActionHandler('play', () => player.playVideo());
@@ -157,24 +248,17 @@ function setupMediaSession() {
 function updateMediaSessionMetadata(track) {
     if ('mediaSession' in navigator) {
         navigator.mediaSession.metadata = new MediaMetadata({
-            title: track.title,
-            artist: track.artist,
+            title: track.title, artist: track.artist,
             artwork: [{ src: track.thumbnail, sizes: '480x360', type: 'image/jpeg' }]
         });
     }
 }
 
-// QoL 3: Global Hotkeys (Spacebar context control)
 document.addEventListener('keydown', (e) => {
     if (document.activeElement.tagName === 'INPUT') return; 
-    if (e.code === 'Space') {
-        e.preventDefault();
-        togglePlay();
-    } else if (e.code === 'ArrowRight' && player) {
-        player.seekTo(player.getCurrentTime() + 5);
-    } else if (e.code === ArrowLeft && player) {
-        player.seekTo(player.getCurrentTime() - 5);
-    }
+    if (e.code === 'Space') { e.preventDefault(); togglePlay(); }
+    else if (e.code === 'ArrowRight' && player) player.seekTo(player.getCurrentTime() + 5);
+    else if (e.code === 'ArrowLeft' && player) player.seekTo(player.getCurrentTime() - 5);
 });
 
 function toggleLikeCurrent() {
@@ -184,6 +268,7 @@ function toggleLikeCurrent() {
     idx > -1 ? liked.splice(idx, 1) : liked.push(v);
     localStorage.setItem("liked", JSON.stringify(liked));
     updateLikeUI();
+    syncDataWithCloud();
 }
 
 function updateLikeUI() {
@@ -195,6 +280,7 @@ function toggleFollow(id, name) {
     following[id] ? delete following[id] : following[id] = name;
     localStorage.setItem("following", JSON.stringify(following));
     render();
+    syncDataWithCloud();
 }
 
 function toggleLoop() {
@@ -214,17 +300,14 @@ function showFollowing() {
     grid.innerHTML = "";
     const artists = Object.entries(following);
     if (artists.length === 0) {
-        grid.innerHTML = "<div style='padding:50px; color:#444'>No producers followed yet.</div>";
+        grid.innerHTML = "<div style='padding:50px; color:#444; font-weight:700;'>No producers followed yet.</div>";
         return;
     }
     artists.forEach(([id, name]) => {
         const card = document.createElement("div");
         card.className = "card";
-        card.innerHTML = `<div class="c-title" style="text-align:center">${name}</div>`;
-        card.onclick = () => {
-            viewTitle.textContent = name.toLowerCase();
-            loadData(`channelId=${id}`);
-        };
+        card.innerHTML = `<div class="c-title" style="text-align:center; margin-bottom:0; padding:10px 0;">👤 ${name}</div>`;
+        card.onclick = () => { viewTitle.textContent = name.toLowerCase(); loadData(`channelId=${id}`); };
         grid.appendChild(card);
     });
 }
@@ -239,4 +322,4 @@ function search() {
     loadData(`q=${encodeURIComponent(q)}`);
 }
 
-showHome();
+checkAuthStatus();
