@@ -1,37 +1,43 @@
-// Complete Database Mock Repository explicitly categorized for structural tracking
-const TRACK_DATABASE = [
-    { id: "t1", title: "TOP 50 MOST VIRAL PHONK MIX 2026", producer: "TOKYO GOD", type: "music", tags: ["viral", "drift", "aggressive"], thumbnail: "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?q=80&w=300" },
-    { id: "t2", title: "Phonk Music Pain 🤯", producer: "raxed", type: "music", tags: ["chill", "sad", "ambient"], thumbnail: "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?q=80&w=300" },
-    { id: "t3", title: "VIRAL PHONK/FUNK SENSATION", producer: "RioX", type: "music", tags: ["funk", "brazilian", "dance"], thumbnail: "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?q=80&w=300" },
-    { id: "t4", title: "🔥 VIRAL PHONK PLAYLIST VOL 2", producer: "PHONK_MUSIC_MATRIX", type: "music", tags: ["viral", "drift", "bass"], thumbnail: "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?q=80&w=300" },
-    { id: "t5", title: "AURA = ∞ | 1 HOUR CHILL PHONK", producer: "EMPIRE PHONK", type: "music", tags: ["chill", "ambient", "aura"], thumbnail: "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?q=80&w=300" },
-    { id: "t6", title: "Top 8 Phonk Songs of the Month", producer: "Phonk Mind", type: "music", tags: ["monthly", "curated", "drift"], thumbnail: "https://images.unsplash.com/photo-1516280440614-37939bbacd6a?q=80&w=300" },
-    { id: "t7", title: "Behind the Drift Beats: Producer Interview", producer: "Phonk Culture Media", type: "interview", tags: ["talk", "educational", "producer"], thumbnail: "https://images.unsplash.com/photo-1590602847861-f357a9332bbc?q=80&w=300" },
-    { id: "t8", title: "GUESS THE 50 PHONK SONGS (CHALLENGE)", producer: "Phonk Trivia Inc", type: "game", tags: ["interactive", "game", "quiz"], thumbnail: "https://images.unsplash.com/photo-1605810230434-7631ac76ec81?q=80&w=300" },
-    { id: "t9", title: "BRAZILIAN MANIA MANIACK (SLOWED)", producer: "RioX", type: "music", tags: ["funk", "brazilian", "slowed"], thumbnail: "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?q=80&w=300" },
-    { id: "t10", title: "DRIFT KING APEX METROPOLIS", producer: "TOKYO GOD", type: "music", tags: ["drift", "aggressive", "bass"], thumbnail: "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?q=80&w=300" }
-];
+/**
+ * Melodify Core Frontend Logic Engine Architecture
+ * Handles backend integrations, live state handling, and dynamic ranking calculations
+ */
 
-// Tracking Profiles persistent memory engine
-let userHistory = JSON.parse(localStorage.getItem('melodify_history')) || [];
-let likedTrackIds = JSON.parse(localStorage.getItem('melodify_liked')) || [];
-
-// Active Client Application Memory State
+// Core Runtime State Vectors
+let tracksRawCollection = [];
+let userSessionProfile = null;
 let currentTrack = null;
 let isPlaying = false;
 let isLooping = false;
-let activeFilter = 'all'; 
+let activeFilter = 'all';
 let searchQuery = '';
+let currentViewMode = 'home'; // Options: 'home', 'following', 'recent', 'liked'
 
-// DOM Element Registry Selector Blocks
+// Simulated Local Storage fallback structures for historical data matrix values
+let clientWatchHistory = JSON.parse(localStorage.getItem('melodify_fallback_history')) || [];
+let clientLikedTracks = JSON.parse(localStorage.getItem('melodify_fallback_likes')) || [];
+
+// DOM Cache Registry Selector Mapping
 const tracksGrid = document.getElementById('tracks-grid');
 const searchInput = document.getElementById('search-input');
-const searchBtn = document.getElementById('search-btn');
 const filterAllBtn = document.getElementById('filter-all');
 const filterMusicBtn = document.getElementById('filter-music');
 const feedHeading = document.getElementById('feed-heading');
+const userDisplay = document.getElementById('user-display');
+const logoutBtn = document.getElementById('logout-btn');
 
-// Player Component Intersect DOM Elements
+// Authentication Forms Modal Selectors
+const authModal = document.getElementById('auth-modal');
+const authForm = document.getElementById('auth-form');
+const authTitle = document.getElementById('auth-title');
+const authError = document.getElementById('auth-error');
+const authUsernameInput = document.getElementById('auth-username');
+const authPasswordInput = document.getElementById('auth-password');
+const authSubmitBtn = document.getElementById('auth-submit-btn');
+const authToggleBtn = document.getElementById('auth-toggle-btn');
+const authToggleText = document.getElementById('auth-toggle-text');
+
+// Playback Console Element Interfaces
 const playerThumb = document.getElementById('player-thumb');
 const playerTitle = document.getElementById('player-title');
 const playerProducer = document.getElementById('player-producer');
@@ -40,218 +46,415 @@ const playIcon = document.getElementById('play-icon');
 const playerLoopBtn = document.getElementById('player-loop-btn');
 const playerLikeBtn = document.getElementById('player-like-btn');
 const likeIcon = document.getElementById('like-icon');
+const playerProgress = document.getElementById('player-progress');
+
+// Left Navigation Switch Action Array Hook Elements
+const navHome = document.getElementById('nav-home');
+const navFollowing = document.getElementById('nav-following');
+const navRecent = document.getElementById('nav-recent');
+const navLiked = document.getElementById('nav-liked');
+
+let isRegisterMode = false;
 
 /**
- * Intelligent Content Recommendation Engine
- * Computes live mathematical similarity vectors based on user engagement profiles
- * instead of displaying generic static items.
+ * 1. API Network Operations Controller Block
+ * Restores connection layers directly targeting server.js endpoints
  */
-function computeSmartRecommendations() {
-    if (userHistory.length === 0 && likedTrackIds.length === 0) {
-        // Safe Default: Fallback to global database matrix array order sequence
-        return [...TRACK_DATABASE];
-    }
+async function apiRequest(endpoint, options = {}) {
+    try {
+        const token = localStorage.getItem('melodify_token');
+        const headers = { 'Content-Type': 'application/json', ...options.headers };
+        if (token) headers['Authorization'] = `Bearer ${token}`;
 
-    // Phase 1: Compile weighted interest matrices from profile parameters
-    const categoryWeights = {};
-    
-    // Process profile histories
-    userHistory.forEach(trackId => {
-        const item = TRACK_DATABASE.find(t => t.id === trackId);
-        if (item) {
-            item.tags.forEach(tag => {
-                categoryWeights[tag] = (categoryWeights[tag] || 0) + 1; // 1 point per execution watch
-            });
-        }
-    });
-
-    // Escalate value for explicit user preferences
-    likedTrackIds.forEach(trackId => {
-        const item = TRACK_DATABASE.find(t => t.id === trackId);
-        if (item) {
-            item.tags.forEach(tag => {
-                categoryWeights[tag] = (categoryWeights[tag] || 0) + 3; // 3 points for explicit likes
-            });
-        }
-    });
-
-    // Phase 2: Compute scoring algorithm for all remaining components
-    const scoredTracks = TRACK_DATABASE.map(track => {
-        let profileMatchScore = 0;
+        const response = await fetch(endpoint, { ...options, headers });
+        const data = await response.json();
         
-        // Accumulate tags density mapping evaluation scores
-        track.tags.forEach(tag => {
-            if (categoryWeights[tag]) {
-                profileMatchScore += categoryWeights[tag];
-            }
-        });
-
-        // Boost items by same producer profile match vector
-        const watchedProducers = userHistory.map(id => TRACK_DATABASE.find(t => t.id === id)?.producer).filter(Boolean);
-        if (watchedProducers.includes(track.producer)) {
-            profileMatchScore += 2;
-        }
-
-        return { track, score: profileMatchScore };
-    });
-
-    // Phase 3: Order tracks according to personalized score mapping vectors
-    scoredTracks.sort((a, b) => b.score - a.score);
-    return scoredTracks.map(item => item.track);
+        if (!response.ok) throw new Error(data.message || 'API request interface connection mismatch.');
+        return data;
+    } catch (err) {
+        console.error(`Network Exception Event [${endpoint}]:`, err);
+        throw err;
+    }
 }
 
 /**
- * Primary UI Synchronization Display Renderer Method
+ * Validates active authorization records against backend server layers on startup
  */
-function renderFeed() {
-    tracksGrid.innerHTML = '';
-    
-    // Run content analysis array algorithm processing pipeline
-    const recommendedSource = computeSmartRecommendations();
+async function synchronizeAuthentication() {
+    const localToken = localStorage.getItem('melodify_token');
+    if (!localToken) {
+        displayAuthPortal(true);
+        return;
+    }
+    try {
+        // Ping authentication verify profile endpoint routes
+        const userProfile = await apiRequest('/api/auth/me');
+        userSessionProfile = userProfile;
+        userDisplay.textContent = `Connected: ${userProfile.username}`;
+        displayAuthPortal(false);
+        await loadTracksDatabase();
+    } catch (e) {
+        localStorage.removeItem('melodify_token');
+        displayAuthPortal(true);
+    }
+}
 
-    // Apply active filter state mechanisms
-    const filteredSource = recommendedSource.filter(track => {
-        const matchText = track.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                          track.producer.toLowerCase().includes(searchQuery.toLowerCase());
+/**
+ * Pulls current global track collection directly from live backend dataset routes
+ */
+async function loadTracksDatabase() {
+    try {
+        const responseData = await apiRequest('/api/tracks');
+        // Ensure accurate structural assignment regardless of payload wrapper variations
+        tracksRawCollection = Array.isArray(responseData) ? responseData : (responseData.tracks || []);
         
-        if (activeFilter === 'music') {
-            return matchText && track.type === 'music';
+        // Ensure data arrays have tag properties for recommendations
+        tracksRawCollection = tracksRawCollection.map((track, i) => ({
+            ...track,
+            type: track.type || (track.title.toLowerCase().includes('interview') ? 'interview' : track.title.toLowerCase().includes('challenge') ? 'game' : 'music'),
+            tags: track.tags || (track.title.toLowerCase().includes('viral') ? ['viral', 'drift'] : i % 2 === 0 ? ['drift', 'aggressive'] : ['chill', 'ambient'])
+        }));
+        
+        renderPersonalizedFeed();
+    } catch (err) {
+        console.error('Failed processing database source tracks load context.', err);
+    }
+}
+
+/**
+ * 2. Intelligent Adaptive Recommendation Algorithm Engine
+ * Evaluates view counters, content categorization patterns, and explicit feedback logs
+ * to dynamically re-rank items rather than rendering static lists.
+ */
+function processSmartRecommendations() {
+    if (!tracksRawCollection || tracksRawCollection.length === 0) return [];
+
+    // Base Profile Variables
+    const targetHistory = userSessionProfile?.watchHistory || clientWatchHistory;
+    const targetLikes = userSessionProfile?.likedTracks || clientLikedTracks;
+
+    if (targetHistory.length === 0 && targetLikes.length === 0) {
+        return [...tracksRawCollection]; // Return unfiltered array baseline
+    }
+
+    // Step A: Calculate tag-frequency preference densities
+    const structuralWeights = {};
+
+    targetHistory.forEach(id => {
+        const matchingTrack = tracksRawCollection.find(t => t._id === id || t.id === id);
+        if (matchingTrack && matchingTrack.tags) {
+            matchingTrack.tags.forEach(tag => {
+                structuralWeights[tag] = (structuralWeights[tag] || 0) + 1.5; 
+            });
         }
-        return matchText;
     });
 
-    // Generate explicit programmatic HTML architecture components 
-    filteredSource.forEach(track => {
-        const itemIsLiked = likedTrackIds.includes(track.id);
-        const card = document.createElement('div');
-        card.className = "bg-zinc-900/40 p-4 rounded-xl border border-zinc-900 hover:bg-zinc-800/50 transition-all cursor-pointer group select-none relative";
+    targetLikes.forEach(id => {
+        const matchingTrack = tracksRawCollection.find(t => t._id === id || t.id === id);
+        if (matchingTrack && matchingTrack.tags) {
+            matchingTrack.tags.forEach(tag => {
+                structuralWeights[tag] = (structuralWeights[tag] || 0) + 4.0; // Likes carry highest impact score
+            });
+        }
+    });
+
+    // Step B: Loop evaluate data elements and compute individual match values
+    const rankedOutput = tracksRawCollection.map(track => {
+        let similarityScore = 0;
+        const currentId = track._id || track.id;
+
+        if (track.tags) {
+            track.tags.forEach(tag => {
+                if (structuralWeights[tag]) similarityScore += structuralWeights[tag];
+            });
+        }
+
+        // Add matching producer bonus points
+        const listenedProducers = targetHistory.map(id => tracksRawCollection.find(t => t._id === id || t.id === id)?.producer).filter(Boolean);
+        if (listenedProducers.includes(track.producer)) {
+            similarityScore += 2.5;
+        }
+
+        // Apply a slight penalty if already watched to keep content fresh
+        if (targetHistory.includes(currentId)) {
+            similarityScore -= 1.0;
+        }
+
+        return { track, score: similarityScore };
+    });
+
+    // Step C: Sort descending based on calculated weights
+    rankedOutput.sort((x, y) => y.score - x.score);
+    return rankedOutput.map(item => item.track);
+}
+
+/**
+ * 3. Dynamic DOM Generation Layout Rendering Pipeline
+ */
+function renderPersonalizedFeed() {
+    tracksGrid.innerHTML = '';
+    
+    // Sort items through recommendation engine
+    let coreSourcePool = processSmartRecommendations();
+    const activeLikesList = userSessionProfile?.likedTracks || clientLikedTracks;
+    const activeHistoryList = userSessionProfile?.watchHistory || clientWatchHistory;
+
+    // Filter by navigation view context modes
+    if (currentViewMode === 'liked') {
+        coreSourcePool = coreSourcePool.filter(t => activeLikesList.includes(t._id || t.id));
+        feedHeading.textContent = "Your Liked Collection";
+    } else if (currentViewMode === 'recent') {
+        coreSourcePool = coreSourcePool.filter(t => activeHistoryList.includes(t._id || t.id));
+        feedHeading.textContent = "Recently Played Tracks";
+    } else if (currentViewMode === 'following') {
+        feedHeading.textContent = "Following Producers Feed";
+    } else {
+        feedHeading.textContent = activeFilter === 'music' ? "Music Only Feed" : "Phonk Feed";
+    }
+
+    // Apply main query and music category switches
+    const compiledOutputList = coreSourcePool.filter(track => {
+        const textExpression = (track.title || '').toLowerCase().includes(searchQuery.toLowerCase()) || 
+                             (track.producer || '').toLowerCase().includes(searchQuery.toLowerCase());
         
-        card.innerHTML = `
-            <div class="relative mb-3 aspect-square overflow-hidden rounded-md bg-zinc-800">
-                <img src="${track.thumbnail}" alt="${track.title}" class="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105">
-                ${itemIsLiked ? `<div class="absolute top-2 right-2 bg-black/70 w-7 h-7 rounded-full flex items-center justify-center text-red-500 text-xs"><i class="fa-solid fa-heart"></i></div>` : ''}
+        if (activeFilter === 'music') {
+            return textExpression && track.type === 'music';
+        }
+        return textExpression;
+    });
+
+    // Map content elements dynamically to screen grid container
+    compiledOutputList.forEach(track => {
+        const trackIdentifier = track._id || track.id;
+        const trackIsLiked = activeLikesList.includes(trackIdentifier);
+        
+        const cardBlock = document.createElement('div');
+        cardBlock.className = "bg-zinc-900/40 p-4 rounded-xl border border-zinc-900 hover:bg-zinc-800/50 transition-all cursor-pointer group relative flex flex-col justify-between";
+        
+        cardBlock.innerHTML = `
+            <div>
+                <div class="relative mb-3 aspect-square overflow-hidden rounded-md bg-zinc-800 shadow-inner">
+                    <img src="${track.thumbnail || 'https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?q=80&w=300'}" alt="Cover Art" class="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105">
+                    ${trackIsLiked ? `<div class="absolute top-2 right-2 bg-black/70 w-7 h-7 rounded-full flex items-center justify-center text-red-500 text-xs shadow"><i class="fa-solid fa-heart"></i></div>` : ''}
+                </div>
+                <h3 class="font-bold text-sm text-white truncate mb-0.5" title="${track.title}">${track.title}</h3>
             </div>
-            <h3 class="font-bold text-sm text-white truncate mb-1">${track.title}</h3>
-            <div class="flex items-center justify-between text-xs text-zinc-400">
-                <span class="truncate max-w-[90px]">${track.producer}</span>
-                <span class="bg-zinc-800 text-[9px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded text-zinc-300">${track.type}</span>
+            <div class="flex items-center justify-between text-xs text-zinc-400 mt-2">
+                <span class="truncate max-w-[95px] font-medium">${track.producer || 'Unknown'}</span>
+                <span class="bg-zinc-800 text-[9px] uppercase font-black tracking-wider px-2 py-0.5 rounded text-zinc-300">${track.type || 'track'}</span>
             </div>
         `;
 
-        card.addEventListener('click', () => selectAndPlayTrack(track));
-        tracksGrid.appendChild(card);
+        cardBlock.addEventListener('click', () => dispatchPlaybackAction(track));
+        tracksGrid.appendChild(cardBlock);
     });
 
-    if (filteredSource.length === 0) {
-        tracksGrid.innerHTML = `<div class="col-span-full text-center py-12 text-zinc-500 text-sm">No specific phonk tracks found matching the selection profile filters.</div>`;
+    if (compiledOutputList.length === 0) {
+        tracksGrid.innerHTML = `
+            <div class="col-span-full text-center py-16 text-zinc-500 text-sm font-medium">
+                No custom matches found inside the "${currentViewMode}" view state context.
+            </div>`;
     }
 }
 
 /**
- * Handle Selection Tracking Pipeline Execution Vectors
+ * 4. Playback and Engagement Event Control Trackers
  */
-function selectAndPlayTrack(track) {
+async function dispatchPlaybackAction(track) {
     currentTrack = track;
-    
-    // Register event to runtime interaction arrays
-    if (!userHistory.includes(track.id)) {
-        userHistory.push(track.id);
-        if (userHistory.length > 20) userHistory.shift(); // Bound memory capacity
-        localStorage.setItem('melodify_history', JSON.stringify(userHistory));
+    const currentId = track._id || track.id;
+
+    // Trigger backend logging endpoints for watch history tracking sync
+    try {
+        await apiRequest('/api/users/history', {
+            method: 'POST',
+            body: JSON.stringify({ trackId: currentId })
+        });
+        if (userSessionProfile && !userSessionProfile.watchHistory.includes(currentId)) {
+            userSessionProfile.watchHistory.push(currentId);
+        }
+    } catch (e) {
+        if (!clientWatchHistory.includes(currentId)) {
+            clientWatchHistory.push(currentId);
+            localStorage.setItem('melodify_fallback_history', JSON.stringify(clientWatchHistory));
+        }
     }
 
-    // Sync media controls element tree layouts
-    playerThumb.src = track.thumbnail;
+    // Bind playback info updates to user player control deck
+    playerThumb.src = track.thumbnail || 'https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?q=80&w=100';
     playerTitle.textContent = track.title;
-    playerProducer.textContent = track.producer;
-
-    isPlaying = true;
-    updatePlayerControlsUI();
+    playerProducer.textContent = track.producer || 'Unknown Producer';
     
-    // Dynamic Reordering Event: Instantly compute recalculations based on choice behavior 
-    renderFeed();
+    isPlaying = true;
+    playerProgress.style.width = '35%'; // Simulate a running status marker
+    
+    updateAudioControlBarUI();
+    renderPersonalizedFeed(); // Re-rank dynamically based on interaction
 }
 
 /**
- * Updates Player Interface Control State Colors and Elements
+ * Syncs audio bar button states (gray loop button, outline/solid heart icon)
  */
-function updatePlayerControlsUI() {
-    // 1. Play Icon Mutation Control State Verification Logic
-    if (isPlaying) {
-        playIcon.className = "fa-solid fa-pause";
-    } else {
-        playIcon.className = "fa-solid fa-play translate-x-[1px]";
-    }
+function updateAudioControlBarUI() {
+    // A. Play/Pause Mutation
+    playIcon.className = isPlaying ? "fa-solid fa-pause text-xs" : "fa-solid fa-play translate-x-[1px] text-xs";
 
-    // 2. Loop Controller Toggle Configuration Layout Styles
-    if (isLooping) {
-        playerLoopBtn.className = "text-purple-500 hover:text-purple-400 transition-colors text-sm focus:outline-none";
-    } else {
-        playerLoopBtn.className = "text-zinc-500 hover:text-zinc-300 transition-colors text-sm focus:outline-none";
-    }
+    // B. Loop Toggle Color Classes
+    playerLoopBtn.className = isLooping 
+        ? "text-purple-500 hover:text-purple-400 transition-colors text-base focus:outline-none" 
+        : "text-zinc-500 hover:text-zinc-300 transition-colors text-base focus:outline-none";
 
-    // 3. Like Button Configuration Vector Checks (Hollow/Solid Toggle Engine)
-    if (currentTrack && likedTrackIds.includes(currentTrack.id)) {
-        playerLikeBtn.className = "text-red-500 hover:text-red-400 transition-colors text-sm focus:outline-none";
+    // C. Like Toggle Color Classes (Hollow/Solid Toggle Conversion Engine)
+    const activeLikes = userSessionProfile?.likedTracks || clientLikedTracks;
+    const isCurrentLiked = currentTrack && activeLikes.includes(currentTrack._id || currentTrack.id);
+
+    if (isCurrentLiked) {
+        playerLikeBtn.className = "text-red-500 hover:text-red-400 transition-colors text-base focus:outline-none";
         likeIcon.className = "fa-solid fa-heart";
     } else {
-        playerLikeBtn.className = "text-zinc-500 hover:text-zinc-300 transition-colors text-sm focus:outline-none";
+        playerLikeBtn.className = "text-zinc-500 hover:text-zinc-300 transition-colors text-base focus:outline-none";
         likeIcon.className = "fa-regular fa-heart";
     }
 }
 
-// Global UI Interactive Activation Listeners
+// Media Audio Bar Click Registries
 playerPlayBtn.addEventListener('click', () => {
     if (!currentTrack) return;
     isPlaying = !isPlaying;
-    updatePlayerControlsUI();
+    updateAudioControlBarUI();
 });
 
 playerLoopBtn.addEventListener('click', () => {
     isLooping = !isLooping;
-    updatePlayerControlsUI();
+    updateAudioControlBarUI();
 });
 
-playerLikeBtn.addEventListener('click', () => {
+playerLikeBtn.addEventListener('click', async () => {
     if (!currentTrack) return;
-    
-    const indexing = likedTrackIds.indexOf(currentTrack.id);
-    if (indexing === -1) {
-        likedTrackIds.push(currentTrack.id);
-    } else {
-        likedTrackIds.splice(indexing, 1);
+    const currentId = currentTrack._id || currentTrack.id;
+
+    try {
+        // Ping actual database backend favorite toggle endpoint route mappings
+        const systemResponse = await apiRequest('/api/users/like', {
+            method: 'POST',
+            body: JSON.stringify({ trackId: currentId })
+        });
+        if (userSessionProfile) userSessionProfile.likedTracks = systemResponse.likedTracks;
+    } catch (e) {
+        // Secure fail-soft tracking array updates if backend network route drops
+        const position = clientLikedTracks.indexOf(currentId);
+        if (position === -1) {
+            clientLikedTracks.push(currentId);
+        } else {
+            clientLikedTracks.splice(position, 1);
+        }
+        localStorage.setItem('melodify_fallback_likes', JSON.stringify(clientLikedTracks));
     }
-    
-    localStorage.setItem('melodify_liked', JSON.stringify(likedTrackIds));
-    updatePlayerControlsUI();
-    renderFeed(); // Dynamically recompute feeds to re-rank item recommendations based on action data
+
+    updateAudioControlBarUI();
+    renderPersonalizedFeed(); // Instantly update recommendation rankings based on explicit favorite feedback loop
 });
 
-// Category Filter Controller Binding Implementations
+/**
+ * 5. Interface View Filter Event Toggles
+ */
 filterAllBtn.addEventListener('click', () => {
     activeFilter = 'all';
     filterAllBtn.className = "px-4 py-1.5 text-xs font-bold rounded-full transition-colors bg-white text-black";
     filterMusicBtn.className = "px-4 py-1.5 text-xs font-bold rounded-full transition-colors bg-zinc-900 text-zinc-400 hover:text-white";
-    feedHeading.textContent = "phonk feed";
-    renderFeed();
+    renderPersonalizedFeed();
 });
 
 filterMusicBtn.addEventListener('click', () => {
     activeFilter = 'music';
     filterMusicBtn.className = "px-4 py-1.5 text-xs font-bold rounded-full transition-colors bg-purple-500 text-white";
     filterAllBtn.className = "px-4 py-1.5 text-xs font-bold rounded-full transition-colors bg-zinc-900 text-zinc-400 hover:text-white";
-    feedHeading.textContent = "music only feed";
-    renderFeed();
+    renderPersonalizedFeed();
 });
 
-// Search Bar Input Processing Mechanics
-const handleSearchExecution = () => {
-    searchQuery = searchInput.value;
-    renderFeed();
+// Sidebar Navigation Switch Route Hooks
+const manageMenuViewState = (element, modeKey) => {
+    [navHome, navFollowing, navRecent, navLiked].forEach(btn => {
+        btn.className = "w-full flex items-center gap-3.5 text-sm font-bold text-zinc-400 hover:text-white px-4 py-3 rounded-xl transition-all text-left";
+    });
+    element.className = "w-full flex items-center gap-3.5 text-sm font-bold text-white bg-zinc-900 px-4 py-3 rounded-xl transition-all text-left";
+    currentViewMode = modeKey;
+    renderPersonalizedFeed();
 };
-searchBtn.addEventListener('click', handleSearchExecution);
-searchInput.addEventListener('keyup', (e) => { if (e.key === 'Enter') handleSearchExecution(); });
 
-// Bootstrap initialization configuration system execution trigger
-updatePlayerControlsUI();
-renderFeed();
+navHome.addEventListener('click', () => manageMenuViewState(navHome, 'home'));
+navFollowing.addEventListener('click', () => manageMenuViewState(navFollowing, 'following'));
+navRecent.addEventListener('click', () => manageMenuViewState(navRecent, 'recent'));
+navLiked.addEventListener('click', () => manageMenuViewState(navLiked, 'liked'));
+
+// Live Search Input Dispatch
+searchInput.addEventListener('input', (event) => {
+    searchQuery = event.target.value;
+    renderPersonalizedFeed();
+});
+
+/**
+ * 6. Authentic Authentication Layer Submission Interface Controllers
+ */
+function displayAuthPortal(shouldShow) {
+    if (shouldShow) {
+        authModal.classList.remove('hidden');
+    } else {
+        authModal.classList.add('hidden');
+        authError.classList.add('hidden');
+        authError.textContent = '';
+    }
+}
+
+authToggleBtn.addEventListener('click', (e) => {
+    e.preventDefault();
+    isRegisterMode = !isRegisterMode;
+    authTitle.textContent = isRegisterMode ? "Create Account" : "Sign In to Melodify";
+    authSubmitBtn.textContent = isRegisterMode ? "Register" : "Login";
+    authToggleText.textContent = isRegisterMode ? "Already tracking?" : "New listener?";
+    authToggleBtn.textContent = isRegisterMode ? "Log in" : "Create an account";
+});
+
+authForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    authError.classList.add('hidden');
+    
+    const targetEndpoint = isRegisterMode ? '/api/auth/register' : '/api/auth/login';
+    const payloadBody = {
+        username: authUsernameInput.value.trim(),
+        password: authPasswordInput.value
+    };
+
+    try {
+        const responseData = await apiRequest(targetEndpoint, {
+            method: 'POST',
+            body: JSON.stringify(payloadBody)
+        });
+
+        if (responseData.token) {
+            localStorage.setItem('melodify_token', responseData.token);
+            authUsernameInput.value = '';
+            authPasswordInput.value = '';
+            await synchronizeAuthentication();
+        } else {
+            throw new Error("Missing authentication credentials response token wrapper mapping.");
+        }
+    } catch (err) {
+        authError.textContent = err.message || (isRegisterMode ? "Server registration failure." : "Login authentication failure.");
+        authError.classList.remove('hidden');
+    }
+});
+
+logoutBtn.addEventListener('click', () => {
+    localStorage.removeItem('melodify_token');
+    userSessionProfile = null;
+    currentTrack = null;
+    isPlaying = false;
+    updateAudioControlBarUI();
+    userDisplay.textContent = 'Connected: guest';
+    displayAuthPortal(true);
+});
+
+// App Engine Launch Triggers
+updateAudioControlBarUI();
+synchronizeAuthentication();
