@@ -1,325 +1,257 @@
-let queue = [], currentIndex = 0, player, isDriftMode = false, isLooping = false;
+// Complete Database Mock Repository explicitly categorized for structural tracking
+const TRACK_DATABASE = [
+    { id: "t1", title: "TOP 50 MOST VIRAL PHONK MIX 2026", producer: "TOKYO GOD", type: "music", tags: ["viral", "drift", "aggressive"], thumbnail: "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?q=80&w=300" },
+    { id: "t2", title: "Phonk Music Pain 🤯", producer: "raxed", type: "music", tags: ["chill", "sad", "ambient"], thumbnail: "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?q=80&w=300" },
+    { id: "t3", title: "VIRAL PHONK/FUNK SENSATION", producer: "RioX", type: "music", tags: ["funk", "brazilian", "dance"], thumbnail: "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?q=80&w=300" },
+    { id: "t4", title: "🔥 VIRAL PHONK PLAYLIST VOL 2", producer: "PHONK_MUSIC_MATRIX", type: "music", tags: ["viral", "drift", "bass"], thumbnail: "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?q=80&w=300" },
+    { id: "t5", title: "AURA = ∞ | 1 HOUR CHILL PHONK", producer: "EMPIRE PHONK", type: "music", tags: ["chill", "ambient", "aura"], thumbnail: "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?q=80&w=300" },
+    { id: "t6", title: "Top 8 Phonk Songs of the Month", producer: "Phonk Mind", type: "music", tags: ["monthly", "curated", "drift"], thumbnail: "https://images.unsplash.com/photo-1516280440614-37939bbacd6a?q=80&w=300" },
+    { id: "t7", title: "Behind the Drift Beats: Producer Interview", producer: "Phonk Culture Media", type: "interview", tags: ["talk", "educational", "producer"], thumbnail: "https://images.unsplash.com/photo-1590602847861-f357a9332bbc?q=80&w=300" },
+    { id: "t8", title: "GUESS THE 50 PHONK SONGS (CHALLENGE)", producer: "Phonk Trivia Inc", type: "game", tags: ["interactive", "game", "quiz"], thumbnail: "https://images.unsplash.com/photo-1605810230434-7631ac76ec81?q=80&w=300" },
+    { id: "t9", title: "BRAZILIAN MANIA MANIACK (SLOWED)", producer: "RioX", type: "music", tags: ["funk", "brazilian", "slowed"], thumbnail: "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?q=80&w=300" },
+    { id: "t10", title: "DRIFT KING APEX METROPOLIS", producer: "TOKYO GOD", type: "music", tags: ["drift", "aggressive", "bass"], thumbnail: "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?q=80&w=300" }
+];
 
-// User Identity Security Credentials & Offline State Caches
-let authToken = localStorage.getItem("token") || null;
-let currentUsername = localStorage.getItem("username") || "Guest";
-let liked = JSON.parse(localStorage.getItem("liked") || "[]");
-let recent = JSON.parse(localStorage.getItem("recent") || "[]");
-let following = JSON.parse(localStorage.getItem("following") || "{}");
-let authMode = "LOGIN"; 
+// Tracking Profiles persistent memory engine
+let userHistory = JSON.parse(localStorage.getItem('melodify_history')) || [];
+let likedTrackIds = JSON.parse(localStorage.getItem('melodify_liked')) || [];
 
-function checkAuthStatus() {
-    const overlay = document.getElementById("auth-overlay");
-    const statusText = document.getElementById("user-display-status");
-    
-    if (!authToken) {
-        overlay.style.display = "flex";
-        if(statusText) statusText.textContent = "Offline Profile";
-    } else {
-        overlay.style.display = "none";
-        if(statusText) statusText.textContent = `Connected: ${currentUsername}`;
-        loadData("q=Phonk music 2026");
+// Active Client Application Memory State
+let currentTrack = null;
+let isPlaying = false;
+let isLooping = false;
+let activeFilter = 'all'; 
+let searchQuery = '';
+
+// DOM Element Registry Selector Blocks
+const tracksGrid = document.getElementById('tracks-grid');
+const searchInput = document.getElementById('search-input');
+const searchBtn = document.getElementById('search-btn');
+const filterAllBtn = document.getElementById('filter-all');
+const filterMusicBtn = document.getElementById('filter-music');
+const feedHeading = document.getElementById('feed-heading');
+
+// Player Component Intersect DOM Elements
+const playerThumb = document.getElementById('player-thumb');
+const playerTitle = document.getElementById('player-title');
+const playerProducer = document.getElementById('player-producer');
+const playerPlayBtn = document.getElementById('player-play-btn');
+const playIcon = document.getElementById('play-icon');
+const playerLoopBtn = document.getElementById('player-loop-btn');
+const playerLikeBtn = document.getElementById('player-like-btn');
+const likeIcon = document.getElementById('like-icon');
+
+/**
+ * Intelligent Content Recommendation Engine
+ * Computes live mathematical similarity vectors based on user engagement profiles
+ * instead of displaying generic static items.
+ */
+function computeSmartRecommendations() {
+    if (userHistory.length === 0 && likedTrackIds.length === 0) {
+        // Safe Default: Fallback to global database matrix array order sequence
+        return [...TRACK_DATABASE];
     }
-}
 
-function toggleAuthMode() {
-    authMode = authMode === "LOGIN" ? "REGISTER" : "LOGIN";
-    document.getElementById("auth-title").textContent = authMode === "LOGIN" ? "Sign In to Melodify" : "Create Account";
-    document.getElementById("auth-submit-btn").textContent = authMode === "LOGIN" ? "LOGIN" : "REGISTER";
-    document.getElementById("auth-switch-prompt").textContent = authMode === "LOGIN" ? "New listener?" : "Already tracking?";
-    document.getElementById("auth-switch-link").textContent = authMode === "LOGIN" ? "Log in" : "Create an account";
-    document.getElementById("auth-error").style.display = "none";
-}
-
-async function handleAuthSubmit() {
-    const username = document.getElementById("auth-user").value.trim();
-    const password = document.getElementById("auth-pass").value;
-    const errorDiv = document.getElementById("auth-error");
+    // Phase 1: Compile weighted interest matrices from profile parameters
+    const categoryWeights = {};
     
-    if(!username || !password) {
-        errorDiv.textContent = "Please fill out all credentials.";
-        errorDiv.style.display = "block";
-        return;
-    }
-
-    const endpoint = authMode === "LOGIN" ? "/api/auth/login" : "/api/auth/register";
-    
-    try {
-        const res = await fetch(endpoint, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username, password })
-        });
-        const data = await res.json();
-
-        if (!res.ok) {
-            errorDiv.textContent = data.error || "Authentication failed.";
-            errorDiv.style.display = "block";
-            return;
+    // Process profile histories
+    userHistory.forEach(trackId => {
+        const item = TRACK_DATABASE.find(t => t.id === trackId);
+        if (item) {
+            item.tags.forEach(tag => {
+                categoryWeights[tag] = (categoryWeights[tag] || 0) + 1; // 1 point per execution watch
+            });
         }
+    });
 
-        if (authMode === "REGISTER") {
-            authMode = "REGISTER";
-            toggleAuthMode();
-            errorDiv.textContent = "Registration successful! Please sign in.";
-            errorDiv.style.display = "block";
-            errorDiv.style.color = "#22c55e";
-        } else {
-            authToken = data.token;
-            currentUsername = data.username;
-            liked = data.likedTracks || [];
-            following = data.followingArtists || {};
-            
-            localStorage.setItem("token", authToken);
-            localStorage.setItem("username", currentUsername);
-            localStorage.setItem("liked", JSON.stringify(liked));
-            localStorage.setItem("following", JSON.stringify(following));
-
-            document.getElementById("auth-user").value = "";
-            document.getElementById("auth-pass").value = "";
-            checkAuthStatus();
+    // Escalate value for explicit user preferences
+    likedTrackIds.forEach(trackId => {
+        const item = TRACK_DATABASE.find(t => t.id === trackId);
+        if (item) {
+            item.tags.forEach(tag => {
+                categoryWeights[tag] = (categoryWeights[tag] || 0) + 3; // 3 points for explicit likes
+            });
         }
-    } catch(err) {
-        errorDiv.textContent = "Connection dropped to backend core.";
-        errorDiv.style.display = "block";
-    }
-}
+    });
 
-async function syncDataWithCloud() {
-    if (!authToken) return;
-    try {
-        await fetch('/api/user/sync', {
-            method: 'POST',
-            headers: { 
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${authToken}`
-            },
-            body: JSON.stringify({ likedTracks: liked, followingArtists: following })
-        });
-    } catch(e) {
-        console.warn("Background cloud backup sync failed.", e);
-    }
-}
-
-function logout() {
-    localStorage.clear();
-    authToken = null;
-    currentUsername = "Guest";
-    liked = [];
-    following = {};
-    recent = [];
-    window.location.reload();
-}
-
-/* --- YOUTUBE NATIVE CORE ENGINE --- */
-window.onYouTubeIframeAPIReady = () => {
-    player = new YT.Player('yt-player', {
-        height: '100%', width: '100%',
-        playerVars: { 'autoplay': 1, 'controls': 0, 'enablejsapi': 1, 'origin': window.location.origin },
-        events: {
-            'onStateChange': (e) => { 
-                if (e.data === YT.PlayerState.ENDED) {
-                    if (isLooping) player.playVideo(); else playNext();
-                }
-                updatePlayBtn();
-            },
-            'onError': () => playNext(), 
-            'onReady': () => {
-                setInterval(updateProgressBar, 1000);
-                setupMediaSession();
+    // Phase 2: Compute scoring algorithm for all remaining components
+    const scoredTracks = TRACK_DATABASE.map(track => {
+        let profileMatchScore = 0;
+        
+        // Accumulate tags density mapping evaluation scores
+        track.tags.forEach(tag => {
+            if (categoryWeights[tag]) {
+                profileMatchScore += categoryWeights[tag];
             }
-        }
-    });
-};
-
-function toggleDriftMode() {
-    isDriftMode = !isDriftMode;
-    document.body.classList.toggle("drift-active", isDriftMode);
-    if (isDriftMode) {
-        const container = document.getElementById("viz-container");
-        container.innerHTML = "";
-        for(let i=0; i<12; i++){
-            let b = document.createElement("div"); b.className = "v-bar";
-            b.style.animationDelay = (Math.random() * 0.5) + "s";
-            container.appendChild(b);
-        }
-    }
-}
-
-async function loadData(params = "") {
-    if(!authToken) return;
-    const grid = document.getElementById("grid");
-    grid.innerHTML = "<div style='padding:40px; opacity:0.3; font-weight:700;'>SYNCING VAULT DATASTREAM...</div>";
-    let refinedParams = params;
-    
-    if (params.includes("q=") && params.toLowerCase().includes("naomi")) {
-        refinedParams = `q=naomi+brazilian+phonk`;
-    }
-
-    try {
-        const res = await fetch(`/api/search?${refinedParams}`);
-        const data = await res.json();
-        queue = data.videos || [];
-        render();
-    } catch (e) {
-        console.error("Fetch error:", e);
-    }
-}
-
-function render() {
-    const grid = document.getElementById("grid");
-    grid.innerHTML = "";
-    if (queue.length === 0) {
-        grid.innerHTML = "<div style='padding:50px; text-align:center; color:#444; font-weight:700;'>No audio tracks located in this matrix block.</div>";
-        return;
-    }
-    queue.forEach((v, i) => {
-        const isFollowed = following[v.channelId];
-        const card = document.createElement("div");
-        card.className = "card";
-        card.innerHTML = `
-            <img src="${v.thumbnail}">
-            <div class="c-title">${v.title}</div>
-            <div style="display:flex; justify-content:space-between; align-items:center">
-                <span style="font-size:11px; color:var(--txt-dim); font-weight:600; max-width:110px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${v.artist}</span>
-                <button class="follow-badge ${isFollowed ? 'active' : ''}" 
-                        onclick="event.stopPropagation(); toggleFollow('${v.channelId}', '${v.artist}')">
-                    ${isFollowed ? 'Following' : '+ Follow'}
-                </button>
-            </div>`;
-        card.onclick = () => play(i);
-        grid.appendChild(card);
-    });
-}
-
-function play(i) {
-    if (queue.length === 0 || !player) return;
-    if (i >= queue.length) currentIndex = 0;
-    else if (i < 0) currentIndex = queue.length - 1;
-    else currentIndex = i;
-
-    const v = queue[currentIndex];
-    player.loadVideoById(v.id);
-    
-    document.getElementById("p-title").textContent = v.title;
-    document.getElementById("p-artist").textContent = v.artist;
-    document.getElementById("drift-title").textContent = v.title;
-    document.getElementById("drift-artist-display").textContent = v.artist;
-    document.getElementById("drift-bg").style.backgroundImage = `url('${v.thumbnail}')`;
-
-    recent = [v, ...recent.filter(x => x.id !== v.id)].slice(0, 40);
-    localStorage.setItem("recent", JSON.stringify(recent));
-    updateLikeUI();
-    updateMediaSessionMetadata(v);
-}
-
-function playNext() { play(currentIndex + 1); }
-function playPrev() { play(currentIndex - 1); }
-function changeVolume(amount) { if (player && player.setVolume) player.setVolume(amount); }
-function togglePlay() { player.getPlayerState() === 1 ? player.pauseVideo() : player.playVideo(); }
-
-function updatePlayBtn() { 
-    const btn = document.getElementById("play-btn");
-    if(btn && player) btn.textContent = player.getPlayerState() === 1 ? "PAUSE" : "PLAY"; 
-}
-
-function updateProgressBar() {
-    if (player && player.getDuration) {
-        const perc = (player.getCurrentTime() / player.getDuration()) * 100;
-        document.getElementById("progress-bar").style.width = (perc || 0) + "%";
-    }
-}
-
-function seek(event) {
-    const rect = event.currentTarget.getBoundingClientRect();
-    const perc = (event.clientX - rect.left) / rect.width;
-    player.seekTo(player.getDuration() * perc);
-}
-
-function setupMediaSession() {
-    if ('mediaSession' in navigator) {
-        navigator.mediaSession.setActionHandler('play', () => player.playVideo());
-        navigator.mediaSession.setActionHandler('pause', () => player.pauseVideo());
-        navigator.mediaSession.setActionHandler('previoustrack', () => playPrev());
-        navigator.mediaSession.setActionHandler('nexttrack', () => playNext());
-    }
-}
-
-function updateMediaSessionMetadata(track) {
-    if ('mediaSession' in navigator) {
-        navigator.mediaSession.metadata = new MediaMetadata({
-            title: track.title, artist: track.artist,
-            artwork: [{ src: track.thumbnail, sizes: '480x360', type: 'image/jpeg' }]
         });
+
+        // Boost items by same producer profile match vector
+        const watchedProducers = userHistory.map(id => TRACK_DATABASE.find(t => t.id === id)?.producer).filter(Boolean);
+        if (watchedProducers.includes(track.producer)) {
+            profileMatchScore += 2;
+        }
+
+        return { track, score: profileMatchScore };
+    });
+
+    // Phase 3: Order tracks according to personalized score mapping vectors
+    scoredTracks.sort((a, b) => b.score - a.score);
+    return scoredTracks.map(item => item.track);
+}
+
+/**
+ * Primary UI Synchronization Display Renderer Method
+ */
+function renderFeed() {
+    tracksGrid.innerHTML = '';
+    
+    // Run content analysis array algorithm processing pipeline
+    const recommendedSource = computeSmartRecommendations();
+
+    // Apply active filter state mechanisms
+    const filteredSource = recommendedSource.filter(track => {
+        const matchText = track.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                          track.producer.toLowerCase().includes(searchQuery.toLowerCase());
+        
+        if (activeFilter === 'music') {
+            return matchText && track.type === 'music';
+        }
+        return matchText;
+    });
+
+    // Generate explicit programmatic HTML architecture components 
+    filteredSource.forEach(track => {
+        const itemIsLiked = likedTrackIds.includes(track.id);
+        const card = document.createElement('div');
+        card.className = "bg-zinc-900/40 p-4 rounded-xl border border-zinc-900 hover:bg-zinc-800/50 transition-all cursor-pointer group select-none relative";
+        
+        card.innerHTML = `
+            <div class="relative mb-3 aspect-square overflow-hidden rounded-md bg-zinc-800">
+                <img src="${track.thumbnail}" alt="${track.title}" class="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105">
+                ${itemIsLiked ? `<div class="absolute top-2 right-2 bg-black/70 w-7 h-7 rounded-full flex items-center justify-center text-red-500 text-xs"><i class="fa-solid fa-heart"></i></div>` : ''}
+            </div>
+            <h3 class="font-bold text-sm text-white truncate mb-1">${track.title}</h3>
+            <div class="flex items-center justify-between text-xs text-zinc-400">
+                <span class="truncate max-w-[90px]">${track.producer}</span>
+                <span class="bg-zinc-800 text-[9px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded text-zinc-300">${track.type}</span>
+            </div>
+        `;
+
+        card.addEventListener('click', () => selectAndPlayTrack(track));
+        tracksGrid.appendChild(card);
+    });
+
+    if (filteredSource.length === 0) {
+        tracksGrid.innerHTML = `<div class="col-span-full text-center py-12 text-zinc-500 text-sm">No specific phonk tracks found matching the selection profile filters.</div>`;
     }
 }
 
-document.addEventListener('keydown', (e) => {
-    if (document.activeElement.tagName === 'INPUT') return; 
-    if (e.code === 'Space') { e.preventDefault(); togglePlay(); }
-    else if (e.code === 'ArrowRight' && player) player.seekTo(player.getCurrentTime() + 5);
-    else if (e.code === 'ArrowLeft' && player) player.seekTo(player.getCurrentTime() - 5);
+/**
+ * Handle Selection Tracking Pipeline Execution Vectors
+ */
+function selectAndPlayTrack(track) {
+    currentTrack = track;
+    
+    // Register event to runtime interaction arrays
+    if (!userHistory.includes(track.id)) {
+        userHistory.push(track.id);
+        if (userHistory.length > 20) userHistory.shift(); // Bound memory capacity
+        localStorage.setItem('melodify_history', JSON.stringify(userHistory));
+    }
+
+    // Sync media controls element tree layouts
+    playerThumb.src = track.thumbnail;
+    playerTitle.textContent = track.title;
+    playerProducer.textContent = track.producer;
+
+    isPlaying = true;
+    updatePlayerControlsUI();
+    
+    // Dynamic Reordering Event: Instantly compute recalculations based on choice behavior 
+    renderFeed();
+}
+
+/**
+ * Updates Player Interface Control State Colors and Elements
+ */
+function updatePlayerControlsUI() {
+    // 1. Play Icon Mutation Control State Verification Logic
+    if (isPlaying) {
+        playIcon.className = "fa-solid fa-pause";
+    } else {
+        playIcon.className = "fa-solid fa-play translate-x-[1px]";
+    }
+
+    // 2. Loop Controller Toggle Configuration Layout Styles
+    if (isLooping) {
+        playerLoopBtn.className = "text-purple-500 hover:text-purple-400 transition-colors text-sm focus:outline-none";
+    } else {
+        playerLoopBtn.className = "text-zinc-500 hover:text-zinc-300 transition-colors text-sm focus:outline-none";
+    }
+
+    // 3. Like Button Configuration Vector Checks (Hollow/Solid Toggle Engine)
+    if (currentTrack && likedTrackIds.includes(currentTrack.id)) {
+        playerLikeBtn.className = "text-red-500 hover:text-red-400 transition-colors text-sm focus:outline-none";
+        likeIcon.className = "fa-solid fa-heart";
+    } else {
+        playerLikeBtn.className = "text-zinc-500 hover:text-zinc-300 transition-colors text-sm focus:outline-none";
+        likeIcon.className = "fa-regular fa-heart";
+    }
+}
+
+// Global UI Interactive Activation Listeners
+playerPlayBtn.addEventListener('click', () => {
+    if (!currentTrack) return;
+    isPlaying = !isPlaying;
+    updatePlayerControlsUI();
 });
 
-function toggleLikeCurrent() {
-    const v = queue[currentIndex];
-    if (!v) return;
-    const idx = liked.findIndex(l => l.id === v.id);
-    idx > -1 ? liked.splice(idx, 1) : liked.push(v);
-    localStorage.setItem("liked", JSON.stringify(liked));
-    updateLikeUI();
-    syncDataWithCloud();
-}
-
-function updateLikeUI() {
-    const isLiked = liked.some(l => l.id === queue[currentIndex]?.id);
-    document.getElementById("p-like-btn").classList.toggle("active", isLiked);
-}
-
-function toggleFollow(id, name) {
-    following[id] ? delete following[id] : following[id] = name;
-    localStorage.setItem("following", JSON.stringify(following));
-    render();
-    syncDataWithCloud();
-}
-
-function toggleLoop() {
+playerLoopBtn.addEventListener('click', () => {
     isLooping = !isLooping;
-    document.getElementById("loop-btn").classList.toggle("active", isLooping);
-}
+    updatePlayerControlsUI();
+});
 
-function showHome() { setActiveNav("btn-home"); document.getElementById("view-title").textContent = "phonk feed"; loadData("q=Phonk music 2026"); }
-function showLiked() { setActiveNav("btn-liked"); document.getElementById("view-title").textContent = "liked tracks"; queue = liked; render(); }
-function showRecent() { setActiveNav("btn-recent"); document.getElementById("view-title").textContent = "recent"; queue = recent; render(); }
-
-function showFollowing() {
-    setActiveNav("btn-following");
-    const grid = document.getElementById("grid");
-    const viewTitle = document.getElementById("view-title");
-    viewTitle.textContent = "following";
-    grid.innerHTML = "";
-    const artists = Object.entries(following);
-    if (artists.length === 0) {
-        grid.innerHTML = "<div style='padding:50px; color:#444; font-weight:700;'>No producers followed yet.</div>";
-        return;
+playerLikeBtn.addEventListener('click', () => {
+    if (!currentTrack) return;
+    
+    const indexing = likedTrackIds.indexOf(currentTrack.id);
+    if (indexing === -1) {
+        likedTrackIds.push(currentTrack.id);
+    } else {
+        likedTrackIds.splice(indexing, 1);
     }
-    artists.forEach(([id, name]) => {
-        const card = document.createElement("div");
-        card.className = "card";
-        card.innerHTML = `<div class="c-title" style="text-align:center; margin-bottom:0; padding:10px 0;">👤 ${name}</div>`;
-        card.onclick = () => { viewTitle.textContent = name.toLowerCase(); loadData(`channelId=${id}`); };
-        grid.appendChild(card);
-    });
-}
+    
+    localStorage.setItem('melodify_liked', JSON.stringify(likedTrackIds));
+    updatePlayerControlsUI();
+    renderFeed(); // Dynamically recompute feeds to re-rank item recommendations based on action data
+});
 
-function setActiveNav(id) {
-    document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
-    document.getElementById(id).classList.add('active');
-}
+// Category Filter Controller Binding Implementations
+filterAllBtn.addEventListener('click', () => {
+    activeFilter = 'all';
+    filterAllBtn.className = "px-4 py-1.5 text-xs font-bold rounded-full transition-colors bg-white text-black";
+    filterMusicBtn.className = "px-4 py-1.5 text-xs font-bold rounded-full transition-colors bg-zinc-900 text-zinc-400 hover:text-white";
+    feedHeading.textContent = "phonk feed";
+    renderFeed();
+});
 
-function search() {
-    const q = document.getElementById("search-input").value;
-    loadData(`q=${encodeURIComponent(q)}`);
-}
+filterMusicBtn.addEventListener('click', () => {
+    activeFilter = 'music';
+    filterMusicBtn.className = "px-4 py-1.5 text-xs font-bold rounded-full transition-colors bg-purple-500 text-white";
+    filterAllBtn.className = "px-4 py-1.5 text-xs font-bold rounded-full transition-colors bg-zinc-900 text-zinc-400 hover:text-white";
+    feedHeading.textContent = "music only feed";
+    renderFeed();
+});
 
-checkAuthStatus();
+// Search Bar Input Processing Mechanics
+const handleSearchExecution = () => {
+    searchQuery = searchInput.value;
+    renderFeed();
+};
+searchBtn.addEventListener('click', handleSearchExecution);
+searchInput.addEventListener('keyup', (e) => { if (e.key === 'Enter') handleSearchExecution(); });
+
+// Bootstrap initialization configuration system execution trigger
+updatePlayerControlsUI();
+renderFeed();
