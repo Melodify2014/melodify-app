@@ -5,13 +5,13 @@
   "main": "server.js",
   "description": "",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "echo 'No frontend compile step necessary'",
     "start": "node server.js"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "express": "^5.2.1"
+    "express": "^5.0.0"
   }
 }
