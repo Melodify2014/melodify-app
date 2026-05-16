@@ -3,6 +3,11 @@
  * Integrates backend APIs with recommendation sorting layers
  */
 
+// Production Configuration: Update this string to your live host URL if deploying (e.g., https://your-app.onrender.com)
+const BACKEND_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' 
+    ? 'http://localhost:5000' 
+    : ''; 
+
 // Application State vectors
 let tracksRawCollection = [];
 let userSessionProfile = null;
@@ -35,7 +40,7 @@ const authUsernameInput = document.getElementById('auth-username');
 const authPasswordInput = document.getElementById('auth-password');
 const authSubmitBtn = document.getElementById('auth-submit-btn');
 const authToggleBtn = document.getElementById('auth-toggle-btn');
-const authToggleText = document.getElementById('auth-toggle-text');
+const authToggleTextLabel = document.getElementById('auth-toggle-text-label');
 
 // Audio Controller Elements
 const playerThumb = document.getElementById('player-thumb');
@@ -65,7 +70,7 @@ async function apiRequest(endpoint, options = {}) {
         const headers = { 'Content-Type': 'application/json', ...options.headers };
         if (token) headers['Authorization'] = `Bearer ${token}`;
 
-        const response = await fetch(endpoint, { ...options, headers });
+        const response = await fetch(`${BACKEND_URL}${endpoint}`, { ...options, headers });
         const data = await response.json();
         
         if (!response.ok) {
@@ -210,19 +215,17 @@ function renderPersonalizedFeed() {
         const trackIsLiked = activeLikesList.includes(trackIdentifier);
         
         const cardBlock = document.createElement('div');
-        cardBlock.className = "bg-zinc-900/40 p-4 rounded-xl border border-zinc-900 hover:bg-zinc-800/50 transition-all cursor-pointer group relative flex flex-col justify-between";
+        cardBlock.className = "card";
         
         cardBlock.innerHTML = `
-            <div>
-                <div class="relative mb-3 aspect-square overflow-hidden rounded-md bg-zinc-800 shadow-inner">
-                    <img src="${track.thumbnail || 'https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?q=80&w=300'}" alt="Cover Art" class="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105">
-                    ${trackIsLiked ? `<div class="absolute top-2 right-2 bg-black/70 w-7 h-7 rounded-full flex items-center justify-center text-red-500 text-xs shadow"><i class="fa-solid fa-heart"></i></div>` : ''}
-                </div>
-                <h3 class="font-bold text-sm text-white truncate mb-0.5" title="${track.title}">${track.title}</h3>
+            <div style="position: relative;">
+                <img src="${track.thumbnail || 'https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?q=80&w=300'}" alt="Cover Art">
+                ${trackIsLiked ? `<div style="position: absolute; top: 8px; right: 8px; background: rgba(0,0,0,0.7); width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #ef4444; font-size: 11px;"><i class="fa-solid fa-heart"></i></div>` : ''}
             </div>
-            <div class="flex items-center justify-between text-xs text-zinc-400 mt-2">
-                <span class="truncate max-w-[95px] font-medium">${track.producer || 'Unknown'}</span>
-                <span class="bg-zinc-800 text-[9px] uppercase font-black tracking-wider px-2 py-0.5 rounded text-zinc-300">${track.type || 'track'}</span>
+            <h3 class="c-title" title="${track.title}">${track.title}</h3>
+            <div style="display: flex; justify-content: space-between; align-items: center; font-size: 11px; color: var(--txt-dim); margin-top: 4px;">
+                <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-w: 110px;">${track.producer || 'Unknown'}</span>
+                <span style="background: #1c1c21; font-size: 9px; font-weight: 800; padding: 2px 6px; border-radius: 4px; color: #fff; text-transform: uppercase;">${track.type || 'track'}</span>
             </div>
         `;
 
@@ -232,7 +235,7 @@ function renderPersonalizedFeed() {
 
     if (compiledOutputList.length === 0) {
         tracksGrid.innerHTML = `
-            <div class="col-span-full text-center py-16 text-zinc-500 text-sm font-medium">
+            <div class="col-span-full" style="grid-column: 1 / -1; text-center; padding: 60px 0; color: var(--txt-dim); font-size: 14px; font-weight: 600; text-align: center;">
                 No custom matches found inside this feed layout.
             </div>`;
     }
@@ -272,20 +275,18 @@ async function dispatchPlaybackAction(track) {
 }
 
 function updateAudioControlBarUI() {
-    playIcon.className = isPlaying ? "fa-solid fa-pause text-xs" : "fa-solid fa-play translate-x-[1px] text-xs";
+    playIcon.className = isPlaying ? "fa-solid fa-pause" : "fa-solid fa-play";
 
-    playerLoopBtn.className = isLooping 
-        ? "text-purple-500 hover:text-purple-400 transition-colors text-base focus:outline-none" 
-        : "text-zinc-500 hover:text-zinc-300 transition-colors text-base focus:outline-none";
+    playerLoopBtn.className = isLooping ? "ctrl-btn option-btn active" : "ctrl-btn";
 
     const activeLikes = userSessionProfile?.likedTracks || clientLikedTracks;
     const isCurrentLiked = currentTrack && activeLikes.includes(currentTrack._id || currentTrack.id);
 
     if (isCurrentLiked) {
-        playerLikeBtn.className = "text-red-500 hover:text-red-400 transition-colors text-base focus:outline-none";
+        playerLikeBtn.style.color = "#ef4444";
         likeIcon.className = "fa-solid fa-heart";
     } else {
-        playerLikeBtn.className = "text-zinc-500 hover:text-zinc-300 transition-colors text-base focus:outline-none";
+        playerLikeBtn.style.color = "";
         likeIcon.className = "fa-regular fa-heart";
     }
 }
@@ -330,23 +331,27 @@ playerLikeBtn.addEventListener('click', async () => {
  */
 filterAllBtn.addEventListener('click', () => {
     activeFilter = 'all';
-    filterAllBtn.className = "px-4 py-1.5 text-xs font-bold rounded-full transition-colors bg-white text-black";
-    filterMusicBtn.className = "px-4 py-1.5 text-xs font-bold rounded-full transition-colors bg-zinc-900 text-zinc-400 hover:text-white";
+    filterAllBtn.style.background = "#fff";
+    filterAllBtn.style.color = "#000";
+    filterMusicBtn.style.background = "#141417";
+    filterMusicBtn.style.color = "var(--txt-dim)";
     renderPersonalizedFeed();
 });
 
 filterMusicBtn.addEventListener('click', () => {
     activeFilter = 'music';
-    filterMusicBtn.className = "px-4 py-1.5 text-xs font-bold rounded-full transition-colors bg-purple-500 text-white";
-    filterAllBtn.className = "px-4 py-1.5 text-xs font-bold rounded-full transition-colors bg-zinc-900 text-zinc-400 hover:text-white";
+    filterMusicBtn.style.background = "#fff";
+    filterMusicBtn.style.color = "#000";
+    filterAllBtn.style.background = "#141417";
+    filterAllBtn.style.color = "var(--txt-dim)";
     renderPersonalizedFeed();
 });
 
 const manageMenuViewState = (element, modeKey) => {
     [navHome, navFollowing, navRecent, navLiked].forEach(btn => {
-        btn.className = "w-full flex items-center gap-3.5 text-sm font-bold text-zinc-400 hover:text-white px-4 py-3 rounded-xl transition-all text-left";
+        btn.classList.remove('active');
     });
-    element.className = "w-full flex items-center gap-3.5 text-sm font-bold text-white bg-zinc-900 px-4 py-3 rounded-xl transition-all text-left";
+    element.classList.add('active');
     currentViewMode = modeKey;
     renderPersonalizedFeed();
 };
@@ -366,10 +371,10 @@ searchInput.addEventListener('input', (event) => {
  */
 function displayAuthPortal(shouldShow) {
     if (shouldShow) {
-        authModal.classList.remove('hidden');
+        authModal.style.display = 'flex';
     } else {
-        authModal.classList.add('hidden');
-        authError.classList.add('hidden');
+        authModal.style.display = 'none';
+        authError.style.display = 'none';
         authError.textContent = '';
     }
 }
@@ -377,17 +382,17 @@ function displayAuthPortal(shouldShow) {
 authToggleBtn.addEventListener('click', (e) => {
     e.preventDefault();
     isRegisterMode = !isRegisterMode;
-    authError.classList.add('hidden');
+    authError.style.display = 'none';
     authTitle.textContent = isRegisterMode ? "Create Account" : "Sign In to Melodify";
     authSubmitBtn.textContent = isRegisterMode ? "Register" : "Login";
-    authToggleText.textContent = isRegisterMode ? "Already tracking?" : "New listener?";
+    authToggleTextLabel.textContent = isRegisterMode ? "Already tracking?" : "New listener?";
     authToggleBtn.textContent = isRegisterMode ? "Log in" : "Create an account";
 });
 
 authForm.addEventListener('submit', async (e) => {
-    e.preventDefault(); // Lock page refresh layout structure completely
+    e.preventDefault(); 
     
-    authError.classList.add('hidden');
+    authError.style.display = 'none';
     authError.textContent = '';
     
     const originalBtnText = authSubmitBtn.textContent;
@@ -397,7 +402,6 @@ authForm.addEventListener('submit', async (e) => {
     const targetEndpoint = isRegisterMode ? '/api/auth/register' : '/api/auth/login';
     const inputVal = authUsernameInput.value.trim();
     
-    // BACKEND ADAPTATION LAYER: Construct properties to safely match your back-end specifications
     const payloadBody = {
         username: inputVal,
         email: inputVal, 
@@ -422,10 +426,8 @@ authForm.addEventListener('submit', async (e) => {
         }
     } catch (err) {
         console.error("Auth Stack Trace Exception Catch Block:", err);
-        
-        // Output clear error indicators inside the browser card modal element container view
         authError.textContent = err.message || "Connection rejected. Please verify your credentials.";
-        authError.classList.remove('hidden');
+        authError.style.display = 'block';
     } finally {
         authSubmitBtn.textContent = originalBtnText;
         authSubmitBtn.disabled = false;
