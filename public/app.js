@@ -4,9 +4,10 @@
  */
 
 // Production Configuration: Update this string to your live host URL if deploying (e.g., https://your-app.onrender.com)
+// Change 'https://your-backend-name.onrender.com' to your actual backend link!
 const BACKEND_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' 
     ? 'http://localhost:5000' 
-    : ''; 
+    : 'https://melodify-phonk.onrender.com'; 
 
 // Application State vectors
 let tracksRawCollection = [];
