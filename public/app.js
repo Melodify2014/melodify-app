@@ -3,8 +3,7 @@
  * Integrates backend APIs with recommendation sorting layers
  */
 
-// Production Configuration: Update this string to your live host URL if deploying (e.g., https://your-app.onrender.com)
-// Change 'https://your-backend-name.onrender.com' to your actual backend link!
+// Production Configuration: Update this string to your live host URL if deploying
 const BACKEND_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' 
     ? 'http://localhost:5000' 
     : 'https://melodify-phonk.onrender.com'; 
@@ -107,7 +106,6 @@ async function loadTracksDatabase() {
         const responseData = await apiRequest('/api/tracks');
         tracksRawCollection = Array.isArray(responseData) ? responseData : (responseData.tracks || []);
         
-        // Normalize object parameters to ensure content filters process accurately
         tracksRawCollection = tracksRawCollection.map((track, i) => ({
             ...track,
             type: track.type || (track.title.toLowerCase().includes('interview') ? 'interview' : track.title.toLowerCase().includes('challenge') ? 'game' : 'music'),
@@ -277,7 +275,6 @@ async function dispatchPlaybackAction(track) {
 
 function updateAudioControlBarUI() {
     playIcon.className = isPlaying ? "fa-solid fa-pause" : "fa-solid fa-play";
-
     playerLoopBtn.className = isLooping ? "ctrl-btn option-btn active" : "ctrl-btn";
 
     const activeLikes = userSessionProfile?.likedTracks || clientLikedTracks;
@@ -377,6 +374,10 @@ function displayAuthPortal(shouldShow) {
         authModal.style.display = 'none';
         authError.style.display = 'none';
         authError.textContent = '';
+        // Reset message box styling back to warning layout defaults
+        authError.style.color = "";
+        authError.style.background = "";
+        authError.style.borderColor = "";
     }
 }
 
@@ -415,12 +416,29 @@ authForm.addEventListener('submit', async (e) => {
             body: JSON.stringify(payloadBody)
         });
 
+        // PATH A WORKAROUND: Handle registration views cleanly if token isn't returned
+        if (isRegisterMode) {
+            isRegisterMode = false;
+            authTitle.textContent = "Sign In to Melodify";
+            authSubmitBtn.textContent = "Login";
+            authToggleTextLabel.textContent = "New listener?";
+            authToggleBtn.textContent = "Create an account";
+            
+            // Switch styles to a positive green layout confirmation alert box
+            authError.style.color = "#22c55e"; 
+            authError.style.background = "rgba(34, 197, 94, 0.1)";
+            authError.style.borderColor = "rgba(34, 197, 94, 0.2)";
+            authError.textContent = "Account created successfully! Please sign in.";
+            authError.style.display = 'block';
+            
+            authPasswordInput.value = '';
+            return;
+        }
+
         if (responseData && responseData.token) {
             localStorage.setItem('melodify_token', responseData.token);
-            
             authUsernameInput.value = '';
             authPasswordInput.value = '';
-            
             await synchronizeAuthentication();
         } else {
             throw new Error("Missing credentials authentication token wrapper.");
