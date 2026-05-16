@@ -10,14 +10,15 @@
 </head>
 <body class="bg-black text-white min-h-screen antialiased flex overflow-hidden">
 
-    <div id="auth-modal" class="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center z-50 hidden">
+    <div id="auth-modal" class="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center z-50">
         <div class="bg-zinc-950 border border-zinc-900 p-8 rounded-2xl w-full max-w-md shadow-2xl">
             <h3 id="auth-title" class="text-2xl font-black tracking-tight mb-2 text-center">Sign In to Melodify</h3>
-            <p id="auth-error" class="bg-red-950/40 border border-red-900/50 text-red-400 text-xs py-2.5 px-4 rounded-lg hidden mb-4 text-center font-medium"></p>
+            
+            <div id="auth-error" class="bg-red-950/50 border border-red-900 text-red-400 text-xs py-3 px-4 rounded-xl hidden mb-4 text-center font-bold tracking-wide"></div>
             
             <form id="auth-form" class="space-y-4">
                 <div>
-                    <label class="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-1.5">Username</label>
+                    <label class="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-1.5">Username or Email</label>
                     <input type="text" id="auth-username" required class="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-purple-500 text-white">
                 </div>
                 <div>
