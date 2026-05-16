@@ -68,7 +68,9 @@ async function apiRequest(endpoint, options = {}) {
         const response = await fetch(endpoint, { ...options, headers });
         const data = await response.json();
         
-        if (!response.ok) throw new Error(data.message || 'API processing mismatch.');
+        if (!response.ok) {
+            throw new Error(data.message || data.error || 'Server rejected request layout.');
+        }
         return data;
     } catch (err) {
         console.error(`Network Interface failure [${endpoint}]:`, err);
@@ -85,7 +87,7 @@ async function synchronizeAuthentication() {
     try {
         const userProfile = await apiRequest('/api/auth/me');
         userSessionProfile = userProfile;
-        userDisplay.textContent = `Connected: ${userProfile.username}`;
+        userDisplay.textContent = `Connected: ${userProfile.username || userProfile.email || 'User'}`;
         displayAuthPortal(false);
         await loadTracksDatabase();
     } catch (e) {
@@ -360,7 +362,7 @@ searchInput.addEventListener('input', (event) => {
 });
 
 /**
- * 6. Fix for Auth Submission Event Race Conditions
+ * 6. Authentic Authentication Handlers
  */
 function displayAuthPortal(shouldShow) {
     if (shouldShow) {
@@ -375,6 +377,7 @@ function displayAuthPortal(shouldShow) {
 authToggleBtn.addEventListener('click', (e) => {
     e.preventDefault();
     isRegisterMode = !isRegisterMode;
+    authError.classList.add('hidden');
     authTitle.textContent = isRegisterMode ? "Create Account" : "Sign In to Melodify";
     authSubmitBtn.textContent = isRegisterMode ? "Register" : "Login";
     authToggleText.textContent = isRegisterMode ? "Already tracking?" : "New listener?";
@@ -382,8 +385,7 @@ authToggleBtn.addEventListener('click', (e) => {
 });
 
 authForm.addEventListener('submit', async (e) => {
-    // CRITICAL: Stop the browser page reload to protect state variables
-    e.preventDefault(); 
+    e.preventDefault(); // Lock page refresh layout structure completely
     
     authError.classList.add('hidden');
     authError.textContent = '';
@@ -393,8 +395,12 @@ authForm.addEventListener('submit', async (e) => {
     authSubmitBtn.disabled = true;
 
     const targetEndpoint = isRegisterMode ? '/api/auth/register' : '/api/auth/login';
+    const inputVal = authUsernameInput.value.trim();
+    
+    // BACKEND ADAPTATION LAYER: Construct double properties to safely hit custom properties
     const payloadBody = {
-        username: authUsernameInput.value.trim(),
+        username: inputVal,
+        email: inputVal, 
         password: authPasswordInput.value
     };
 
@@ -407,20 +413,20 @@ authForm.addEventListener('submit', async (e) => {
         if (responseData && responseData.token) {
             localStorage.setItem('melodify_token', responseData.token);
             
-            // Clear inputs ONLY after verified success response
             authUsernameInput.value = '';
             authPasswordInput.value = '';
             
             await synchronizeAuthentication();
         } else {
-            throw new Error("Missing authentication token from server response.");
+            throw new Error("Missing credentials authentication token wrapper.");
         }
     } catch (err) {
-        console.error("Auth Stack Trace Exception:", err);
-        // Retain values on error so user doesn't lose credentials text entries
-        authError.textContent = err.message || (isRegisterMode ? "Server registration failure." : "Login authentication failure.");
+        console.error("Auth Stack Trace Exception Catch Block:", err);
+        
+        // Output clear error indicators inside the browser card modal element container view
+        authError.textContent = err.message || "Connection rejected. Please verify your credentials.";
         authError.classList.remove('hidden');
-    } finally {
+    } finaly {
         authSubmitBtn.textContent = originalBtnText;
         authSubmitBtn.disabled = false;
     }
