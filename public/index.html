@@ -3,35 +3,58 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Melodify - Phonk Streaming</title>
+    <title>Melodify - Phonk Streaming Platform</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="styles.css">
 </head>
 <body class="bg-black text-white min-h-screen antialiased flex overflow-hidden">
 
-    <aside class="w-64 bg-zinc-950 p-6 flex flex-col justify-between border-r border-zinc-900 select-none">
+    <div id="auth-modal" class="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center z-50 hidden">
+        <div class="bg-zinc-950 border border-zinc-900 p-8 rounded-2xl w-full max-w-md shadow-2xl">
+            <h3 id="auth-title" class="text-2xl font-black tracking-tight mb-2 text-center">Sign In to Melodify</h3>
+            <p id="auth-error" class="bg-red-950/40 border border-red-900/50 text-red-400 text-xs py-2.5 px-4 rounded-lg hidden mb-4 text-center font-medium"></p>
+            
+            <form id="auth-form" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-1.5">Username</label>
+                    <input type="text" id="auth-username" required class="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-purple-500 text-white">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-1.5">Password</label>
+                    <input type="password" id="auth-password" required class="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-purple-500 text-white">
+                </div>
+                <button type="submit" id="auth-submit-btn" class="w-full bg-white text-black font-bold py-3 rounded-xl hover:bg-zinc-200 active:scale-[0.98] transition-all text-sm uppercase tracking-wide mt-2">Login</button>
+            </form>
+            <p class="text-zinc-500 text-xs text-center mt-5 font-medium">
+                <span id="auth-toggle-text">New listener?</span> 
+                <button id="auth-toggle-btn" class="text-white font-bold hover:underline ml-1">Create an account</button>
+            </p>
+        </div>
+    </div>
+
+    <aside class="w-64 bg-zinc-950 p-6 flex flex-col justify-between border-r border-zinc-900 select-none shrink-0">
         <div class="space-y-8">
             <h1 class="text-2xl font-black tracking-tighter text-white">MELODIFY</h1>
-            <nav class="space-y-2">
-                <a href="#" id="nav-home" class="flex items-center gap-3 text-sm font-semibold text-white bg-zinc-900 px-4 py-2.5 rounded-lg transition-all">
-                    <i class="fa-solid fa-house text-purple-500"></i> Home
-                </a>
-                <a href="#" id="nav-following" class="flex items-center gap-3 text-sm font-semibold text-zinc-400 hover:text-white px-4 py-2.5 transition-colors">
-                    <i class="fa-solid fa-users"></i> Following
-                </a>
-                <a href="#" id="nav-recent" class="flex items-center gap-3 text-sm font-semibold text-zinc-400 hover:text-white px-4 py-2.5 transition-colors">
-                    <i class="fa-solid fa-clock"></i> Recent
-                </a>
-                <a href="#" id="nav-liked" class="flex items-center gap-3 text-sm font-semibold text-zinc-400 hover:text-white px-4 py-2.5 transition-colors">
-                    <i class="fa-solid fa-heart"></i> Liked
-                </a>
+            <nav class="space-y-1.5">
+                <button id="nav-home" class="w-full flex items-center gap-3.5 text-sm font-bold text-white bg-zinc-900 px-4 py-3 rounded-xl transition-all">
+                    <i class="fa-solid fa-house text-purple-500 w-4"></i> Home
+                </button>
+                <button id="nav-following" class="w-full flex items-center gap-3.5 text-sm font-bold text-zinc-400 hover:text-white px-4 py-3 rounded-xl transition-all text-left">
+                    <i class="fa-solid fa-users w-4"></i> Following
+                </button>
+                <button id="nav-recent" class="w-full flex items-center gap-3.5 text-sm font-bold text-zinc-400 hover:text-white px-4 py-3 rounded-xl transition-all text-left">
+                    <i class="fa-solid fa-clock w-4"></i> Recent
+                </button>
+                <button id="nav-liked" class="w-full flex items-center gap-3.5 text-sm font-bold text-zinc-400 hover:text-white px-4 py-3 rounded-xl transition-all text-left">
+                    <i class="fa-solid fa-heart w-4"></i> Liked
+                </button>
             </nav>
         </div>
         <div class="space-y-4 pt-4 border-t border-zinc-900">
-            <p class="text-xs text-zinc-500 font-medium">Connected: melodify owner</p>
-            <button class="w-full text-left text-sm font-semibold text-red-500 hover:text-red-400 flex items-center gap-2 transition-colors">
-                <span class="w-2 h-2 bg-red-500 rounded-full animate-pulse"></span> Disconnect
+            <p id="user-display" class="text-xs text-zinc-400 font-bold truncate px-2">Connected: guest</p>
+            <button id="logout-btn" class="w-full text-left text-sm font-bold text-red-500 hover:text-red-400 flex items-center gap-2 px-2 transition-colors">
+                <span class="w-2 h-2 bg-red-500 rounded-full"></span> Disconnect
             </button>
         </div>
     </aside>
@@ -41,18 +64,10 @@
             <div class="flex items-center gap-3 flex-1 max-w-xl">
                 <div class="relative w-full">
                     <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500 text-sm"></i>
-                    <input 
-                        type="text" 
-                        id="search-input"
-                        placeholder="Search track, producer, aesthetic..."
-                        class="w-full bg-zinc-900 border border-zinc-800 rounded-lg pl-10 pr-4 py-2 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-purple-500 transition-colors"
-                    >
+                    <input type="text" id="search-input" placeholder="Search track, producer, aesthetic..." class="w-full bg-zinc-900 border border-zinc-800 rounded-xl pl-10 pr-4 py-2.5 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-purple-500 transition-colors">
                 </div>
-                <button id="search-btn" class="bg-white text-black px-5 py-2 rounded-lg text-sm font-bold hover:bg-zinc-200 transition-colors">
-                    Search
-                </button>
             </div>
-            <button class="bg-purple-600 hover:bg-purple-700 text-white font-black text-xs tracking-wider uppercase px-4 py-2.5 rounded-md shadow-lg shadow-purple-900/30 transition-all transform active:scale-95">
+            <button class="bg-purple-600 hover:bg-purple-700 text-white font-black text-xs tracking-wider uppercase px-4 py-3 rounded-lg shadow-lg shadow-purple-900/30 transition-all active:scale-95">
                 ⚡ DRIFT MODE
             </button>
         </header>
@@ -67,67 +82,56 @@
         </div>
 
         <section class="space-y-6">
-            <h2 id="feed-heading" class="text-2xl font-black tracking-tight text-white capitalize">phonk feed</h2>
+            <h2 id="feed-heading" class="text-2xl font-black tracking-tight text-white capitalize">Phonk Feed</h2>
             <div id="tracks-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
                 </div>
         </section>
     </main>
 
-    <div class="fixed bottom-0 left-0 right-0 bg-zinc-950 border-t border-zinc-900 px-5 py-3.5 flex items-center justify-between z-50 select-none">
-        <div class="flex items-center gap-3.5 w-1/4 min-w-[200px]">
-            <img 
-                id="player-thumb"
-                src="https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?q=80&w=100" 
-                alt="Track Thumbnail" 
-                class="w-12 h-12 rounded object-cover border border-zinc-800"
-            />
+    <div class="fixed bottom-0 left-0 right-0 bg-zinc-950/95 border-t border-zinc-900 px-6 py-4 flex items-center justify-between z-50 select-none backdrop-blur-md">
+        <div class="flex items-center gap-3.5 w-1/4 min-w-[220px]">
+            <img id="player-thumb" src="https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?q=80&w=100" alt="Cover Art" class="w-12 h-12 rounded-lg object-cover border border-zinc-800 shadow-md shrink-0">
             <div class="overflow-hidden">
                 <h4 id="player-title" class="text-white text-sm font-bold truncate">No track selected</h4>
-                <p id="player-producer" class="text-zinc-500 text-xs truncate mt-0.5">Select a phonk mix from the feed</p>
+                <p id="player-producer" class="text-zinc-500 text-xs truncate mt-0.5">Select a track from your stream</p>
             </div>
         </div>
 
-        <div class="flex flex-col items-center gap-2 w-2/4 max-w-xl">
+        <div class="flex flex-col items-center gap-2.5 w-2/4 max-w-lg">
             <div class="flex items-center gap-6">
-                <button id="player-loop-btn" class="text-zinc-500 hover:text-zinc-300 transition-colors text-sm focus:outline-none">
+                <button id="player-loop-btn" class="text-zinc-500 hover:text-zinc-300 transition-colors text-base focus:outline-none">
                     <i class="fa-solid fa-arrows-rotate"></i>
                 </button>
 
-                <button class="text-zinc-400 hover:text-white transition-colors text-sm">
+                <button id="player-prev-btn" class="text-zinc-400 hover:text-white transition-colors text-base">
                     <i class="fa-solid fa-backward-step"></i>
                 </button>
 
-                <button id="player-play-btn" class="bg-white text-black p-2.5 rounded-full hover:scale-105 active:scale-95 transition-all flex items-center justify-center w-10 h-10">
-                    <i id="play-icon" class="fa-solid fa-play translate-x-[1px]"></i>
+                <button id="player-play-btn" class="bg-white text-black p-3 rounded-full hover:scale-105 active:scale-95 transition-all flex items-center justify-center w-10 h-10 shadow-md">
+                    <i id="play-icon" class="fa-solid fa-play translate-x-[1px] text-xs"></i>
                 </button>
 
-                <button class="text-zinc-400 hover:text-white transition-colors text-sm">
+                <button id="player-next-btn" class="text-zinc-400 hover:text-white transition-colors text-base">
                     <i class="fa-solid fa-forward-step"></i>
                 </button>
 
-                <button id="player-like-btn" class="text-zinc-500 hover:text-zinc-300 transition-colors text-sm focus:outline-none">
+                <button id="player-like-btn" class="text-zinc-500 hover:text-zinc-300 transition-colors text-base focus:outline-none">
                     <i id="like-icon" class="fa-regular fa-heart"></i>
                 </button>
             </div>
 
-            <div class="flex items-center gap-2.5 w-full text-[11px] font-medium text-zinc-500">
+            <div class="flex items-center gap-3 w-full text-[11px] font-bold text-zinc-500">
                 <span id="track-time-current">0:00</span>
-                <div class="h-1 w-full bg-zinc-800 rounded-full cursor-pointer relative group transition-all">
-                    <div class="h-full bg-purple-500 rounded-full w-0 group-hover:bg-purple-400 transition-all"></div>
+                <div class="h-1 w-full bg-zinc-800 rounded-full cursor-pointer relative group">
+                    <div id="player-progress" class="h-full bg-purple-500 rounded-full w-0 group-hover:bg-purple-400 transition-all"></div>
                 </div>
-                <span id="track-time-total">0:00</span>
+                <span id="track-time-total">3:15</span>
             </div>
         </div>
 
-        <div class="flex items-center gap-2 w-1/4 justify-end min-w-[120px]">
+        <div class="flex items-center gap-2.5 w-1/4 justify-end min-w-[130px]">
             <i class="fa-solid fa-volume-high text-zinc-500 text-xs"></i>
-            <input 
-                type="range" 
-                min="0" 
-                max="100" 
-                value="80"
-                class="w-20 accent-purple-500 h-1 bg-zinc-800 rounded-lg appearance-none cursor-pointer"
-            >
+            <input type="range" min="0" max="100" value="80" class="w-20 accent-purple-500 h-1 bg-zinc-800 rounded-lg appearance-none cursor-pointer">
         </div>
     </div>
 
