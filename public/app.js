@@ -397,7 +397,7 @@ authForm.addEventListener('submit', async (e) => {
     const targetEndpoint = isRegisterMode ? '/api/auth/register' : '/api/auth/login';
     const inputVal = authUsernameInput.value.trim();
     
-    // BACKEND ADAPTATION LAYER: Construct double properties to safely hit custom properties
+    // BACKEND ADAPTATION LAYER: Construct properties to safely match your back-end specifications
     const payloadBody = {
         username: inputVal,
         email: inputVal, 
@@ -426,7 +426,7 @@ authForm.addEventListener('submit', async (e) => {
         // Output clear error indicators inside the browser card modal element container view
         authError.textContent = err.message || "Connection rejected. Please verify your credentials.";
         authError.classList.remove('hidden');
-    } finaly {
+    } finally {
         authSubmitBtn.textContent = originalBtnText;
         authSubmitBtn.disabled = false;
     }
