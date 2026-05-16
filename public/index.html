@@ -3,77 +3,96 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Melodify Pro | Phonk Edition</title>
-    <link rel="icon" href="data:;base64,iVBORw0KGgo=">
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&display=swap" rel="stylesheet">
+    <title>Melodify // Phonk Audio Deck</title>
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
 
-    <div class="drift-bg" id="drift-bg">
-        <div class="drift-overlay">
-            <div class="drift-content">
-                <h1 id="drift-title">SELECT A TRACK</h1>
-                <div class="visualizer-container" id="viz-container"></div>
-            </div>
-            <div id="drift-artist-display" class="drift-artist-bottom">Phonk Player Pro</div>
+    <div id="auth-overlay" class="auth-modal">
+        <div class="auth-box">
+            <h2 id="auth-title">Sign In to Melodify</h2>
+            <div id="auth-error" class="auth-error-msg"></div>
+            <input type="text" id="auth-user" placeholder="Username">
+            <input type="password" id="auth-pass" placeholder="Password">
+            <button onclick="handleAuthSubmit()" id="auth-submit-btn" class="auth-main-btn">LOGIN</button>
+            <p class="auth-toggle-text">
+                <span id="auth-switch-prompt">New listener?</span> 
+                <a href="#" onclick="toggleAuthMode()" id="auth-switch-link">Create an account</a>
+            </p>
         </div>
     </div>
-    
-    <button onclick="toggleDriftMode()" id="drift-close" class="drift-close-btn">✕ Exit Drift Mode</button>
 
-    <div class="layout" id="main-layout">
+    <div class="layout">
+        
         <aside class="sidebar">
-            <div class="logo">MELODIFY<span class="dot">.</span></div>
-            <div class="search-container">
-                <input id="search-input" placeholder="Search Phonk..." onkeydown="if(event.key==='Enter') search()">
-            </div>
+            <div class="logo">MELODIFY</div>
             <nav class="nav-menu">
                 <button onclick="showHome()" class="nav-btn active" id="btn-home">🏠 Home</button>
                 <button onclick="showFollowing()" class="nav-btn" id="btn-following">👥 Following</button>
                 <button onclick="showRecent()" class="nav-btn" id="btn-recent">🕒 Recent</button>
                 <button onclick="showLiked()" class="nav-btn" id="btn-liked">❤️ Liked</button>
+                
+                <hr style="border:0; border-top:1px solid #1a1a1c; margin:15px 0;">
+                
+                <div id="user-display-status" style="font-size:11px; padding:0 12px; color:var(--txt-dim); margin-bottom:8px; font-weight:600;">Guest Profile</div>
+                <button onclick="logout()" class="nav-btn" style="color:#ef4444;" id="btn-logout">🚪 Disconnect</button>
             </nav>
-            <div class="sidebar-footer">
-                <div class="mini-player-container"><div id="yt-player"></div></div>
-            </div>
         </aside>
 
-        <main class="main-content">
-            <header class="top-bar"><h1 id="view-title">phonk feed</h1></header>
-            <div id="grid" class="grid"></div>
+        <main class="content">
+            <header class="top-bar">
+                <div class="search-box">
+                    <input type="text" id="search-input" placeholder="Search track, producer, aesthetic..." onkeydown="if(event.key==='Enter') search()">
+                    <button onclick="search()">Search</button>
+                </div>
+                <button class="drift-toggle-btn" onclick="toggleDriftMode()">⚡ DRIFT MODE</button>
+            </header>
+
+            <h1 id="view-title" class="section-title">phonk feed</h1>
+            <div id="grid" class="media-grid"></div>
         </main>
     </div>
 
-    <div class="slim-player" id="player-bar">
-        <div class="p-progress-container" onclick="seek(event)">
-            <div class="p-progress-bar" id="progress-bar"></div>
-        </div>
-        <div class="p-inner">
-            <div class="p-left">
-                <div class="p-info">
-                    <div id="p-title" class="p-title">Select a track</div>
-                    <div id="p-artist" class="p-artist">Waiting for beat...</div>
-                </div>
-            </div>
-            
-            <div class="p-center">
-                <button onclick="toggleLoop()" id="loop-btn" class="icon-btn">🔁</button>
-                <button onclick="playPrev()" class="icon-btn-nav">⏮</button>
-                <button onclick="togglePlay()" id="play-btn" class="play-main">PLAY</button>
-                <button onclick="playNext()" class="icon-btn-nav">⏭</button>
-                <button onclick="toggleLikeCurrent()" id="p-like-btn" class="icon-btn">❤️</button>
-            </div>
-            
-            <div class="p-right">
-                <div class="volume-container">
-                    <span style="font-size: 12px; opacity: 0.6;">🔊</span>
-                    <input type="range" id="volume-slider" min="0" max="100" value="100" oninput="changeVolume(this.value)">
-                </div>
-                <button onclick="toggleDriftMode()" class="drift-toggle-btn">🚗 DRIFT MODE</button>
-            </div>
+    <div class="drift-workspace">
+        <div id="drift-bg" class="drift-bg-blur"></div>
+        <div class="drift-overlay-dim"></div>
+        <button class="exit-drift-btn" onclick="toggleDriftMode()">✕ Close Engine Screen</button>
+        
+        <div class="drift-center-deck">
+            <div id="viz-container" class="visualizer-bars"></div>
+            <h1 id="drift-title" class="drift-meta-title">No Track Active</h1>
+            <p id="drift-artist-display" class="drift-meta-artist">Select audio input streaming context</p>
         </div>
     </div>
+
+    <footer class="player-bar">
+        <div style="position: absolute; width:0; height:0; opacity:0; pointer-events: none;">
+            <div id="yt-player"></div>
+        </div>
+
+        <div class="p-left">
+            <div id="p-title" class="p-title-text">No Track Selected</div>
+            <div id="p-artist" class="p-artist-text">Select streaming context</div>
+        </div>
+
+        <div class="p-center">
+            <div class="player-controls">
+                <button onclick="playPrev()" class="ctrl-btn">⏮</button>
+                <button onclick="togglePlay()" id="play-btn" class="ctrl-btn main-play">PLAY</button>
+                <button onclick="playNext()" class="ctrl-btn">⏭</button>
+                <button onclick="toggleLoop()" id="loop-btn" class="ctrl-btn option-btn">🔁</button>
+                <button onclick="toggleLikeCurrent()" id="p-like-btn" class="ctrl-btn option-btn">❤️</button>
+            </div>
+            <div class="progress-container" onclick="seek(event)">
+                <div id="progress-bar" class="progress-fill"></div>
+            </div>
+        </div>
+
+        <div class="p-right">
+            <span style="font-size:12px; opacity:0.5;">🔊 Volume</span>
+            <input type="range" min="0" max="100" value="100" class="vol-slider" oninput="changeVolume(this.value)">
+        </div>
+    </footer>
 
     <script src="https://www.youtube.com/iframe_api"></script>
     <script src="app.js"></script>
