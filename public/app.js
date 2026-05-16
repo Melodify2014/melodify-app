@@ -1,9 +1,9 @@
 /**
- * Melodify Core Frontend Logic Engine Architecture
- * Handles backend integrations, live state handling, and dynamic ranking calculations
+ * Melodify Core Frontend Application Engine
+ * Integrates backend APIs with recommendation sorting layers
  */
 
-// Core Runtime State Vectors
+// Application State vectors
 let tracksRawCollection = [];
 let userSessionProfile = null;
 let currentTrack = null;
@@ -11,13 +11,13 @@ let isPlaying = false;
 let isLooping = false;
 let activeFilter = 'all';
 let searchQuery = '';
-let currentViewMode = 'home'; // Options: 'home', 'following', 'recent', 'liked'
+let currentViewMode = 'home'; 
 
-// Simulated Local Storage fallback structures for historical data matrix values
+// Local fallbacks if backend array updates undergo mid-flight context drops
 let clientWatchHistory = JSON.parse(localStorage.getItem('melodify_fallback_history')) || [];
 let clientLikedTracks = JSON.parse(localStorage.getItem('melodify_fallback_likes')) || [];
 
-// DOM Cache Registry Selector Mapping
+// DOM Element Registry Cache
 const tracksGrid = document.getElementById('tracks-grid');
 const searchInput = document.getElementById('search-input');
 const filterAllBtn = document.getElementById('filter-all');
@@ -26,7 +26,7 @@ const feedHeading = document.getElementById('feed-heading');
 const userDisplay = document.getElementById('user-display');
 const logoutBtn = document.getElementById('logout-btn');
 
-// Authentication Forms Modal Selectors
+// Authentication UI Selectors
 const authModal = document.getElementById('auth-modal');
 const authForm = document.getElementById('auth-form');
 const authTitle = document.getElementById('auth-title');
@@ -37,7 +37,7 @@ const authSubmitBtn = document.getElementById('auth-submit-btn');
 const authToggleBtn = document.getElementById('auth-toggle-btn');
 const authToggleText = document.getElementById('auth-toggle-text');
 
-// Playback Console Element Interfaces
+// Audio Controller Elements
 const playerThumb = document.getElementById('player-thumb');
 const playerTitle = document.getElementById('player-title');
 const playerProducer = document.getElementById('player-producer');
@@ -48,7 +48,7 @@ const playerLikeBtn = document.getElementById('player-like-btn');
 const likeIcon = document.getElementById('like-icon');
 const playerProgress = document.getElementById('player-progress');
 
-// Left Navigation Switch Action Array Hook Elements
+// Nav Items
 const navHome = document.getElementById('nav-home');
 const navFollowing = document.getElementById('nav-following');
 const navRecent = document.getElementById('nav-recent');
@@ -57,8 +57,7 @@ const navLiked = document.getElementById('nav-liked');
 let isRegisterMode = false;
 
 /**
- * 1. API Network Operations Controller Block
- * Restores connection layers directly targeting server.js endpoints
+ * 1. API Fetch Pipeline Configuration
  */
 async function apiRequest(endpoint, options = {}) {
     try {
@@ -69,17 +68,14 @@ async function apiRequest(endpoint, options = {}) {
         const response = await fetch(endpoint, { ...options, headers });
         const data = await response.json();
         
-        if (!response.ok) throw new Error(data.message || 'API request interface connection mismatch.');
+        if (!response.ok) throw new Error(data.message || 'API processing mismatch.');
         return data;
     } catch (err) {
-        console.error(`Network Exception Event [${endpoint}]:`, err);
+        console.error(`Network Interface failure [${endpoint}]:`, err);
         throw err;
     }
 }
 
-/**
- * Validates active authorization records against backend server layers on startup
- */
 async function synchronizeAuthentication() {
     const localToken = localStorage.getItem('melodify_token');
     if (!localToken) {
@@ -87,7 +83,6 @@ async function synchronizeAuthentication() {
         return;
     }
     try {
-        // Ping authentication verify profile endpoint routes
         const userProfile = await apiRequest('/api/auth/me');
         userSessionProfile = userProfile;
         userDisplay.textContent = `Connected: ${userProfile.username}`;
@@ -99,16 +94,12 @@ async function synchronizeAuthentication() {
     }
 }
 
-/**
- * Pulls current global track collection directly from live backend dataset routes
- */
 async function loadTracksDatabase() {
     try {
         const responseData = await apiRequest('/api/tracks');
-        // Ensure accurate structural assignment regardless of payload wrapper variations
         tracksRawCollection = Array.isArray(responseData) ? responseData : (responseData.tracks || []);
         
-        // Ensure data arrays have tag properties for recommendations
+        // Normalize object parameters to ensure content filters process accurately
         tracksRawCollection = tracksRawCollection.map((track, i) => ({
             ...track,
             type: track.type || (track.title.toLowerCase().includes('interview') ? 'interview' : track.title.toLowerCase().includes('challenge') ? 'game' : 'music'),
@@ -122,22 +113,18 @@ async function loadTracksDatabase() {
 }
 
 /**
- * 2. Intelligent Adaptive Recommendation Algorithm Engine
- * Evaluates view counters, content categorization patterns, and explicit feedback logs
- * to dynamically re-rank items rather than rendering static lists.
+ * 2. Adaptive Weight Recommendation Engine
  */
 function processSmartRecommendations() {
     if (!tracksRawCollection || tracksRawCollection.length === 0) return [];
 
-    // Base Profile Variables
     const targetHistory = userSessionProfile?.watchHistory || clientWatchHistory;
     const targetLikes = userSessionProfile?.likedTracks || clientLikedTracks;
 
     if (targetHistory.length === 0 && targetLikes.length === 0) {
-        return [...tracksRawCollection]; // Return unfiltered array baseline
+        return [...tracksRawCollection];
     }
 
-    // Step A: Calculate tag-frequency preference densities
     const structuralWeights = {};
 
     targetHistory.forEach(id => {
@@ -153,12 +140,11 @@ function processSmartRecommendations() {
         const matchingTrack = tracksRawCollection.find(t => t._id === id || t.id === id);
         if (matchingTrack && matchingTrack.tags) {
             matchingTrack.tags.forEach(tag => {
-                structuralWeights[tag] = (structuralWeights[tag] || 0) + 4.0; // Likes carry highest impact score
+                structuralWeights[tag] = (structuralWeights[tag] || 0) + 4.0; 
             });
         }
     });
 
-    // Step B: Loop evaluate data elements and compute individual match values
     const rankedOutput = tracksRawCollection.map(track => {
         let similarityScore = 0;
         const currentId = track._id || track.id;
@@ -169,37 +155,32 @@ function processSmartRecommendations() {
             });
         }
 
-        // Add matching producer bonus points
         const listenedProducers = targetHistory.map(id => tracksRawCollection.find(t => t._id === id || t.id === id)?.producer).filter(Boolean);
         if (listenedProducers.includes(track.producer)) {
             similarityScore += 2.5;
         }
 
-        // Apply a slight penalty if already watched to keep content fresh
         if (targetHistory.includes(currentId)) {
-            similarityScore -= 1.0;
+            similarityScore -= 1.0; 
         }
 
         return { track, score: similarityScore };
     });
 
-    // Step C: Sort descending based on calculated weights
     rankedOutput.sort((x, y) => y.score - x.score);
     return rankedOutput.map(item => item.track);
 }
 
 /**
- * 3. Dynamic DOM Generation Layout Rendering Pipeline
+ * 3. Layout Rendering Array Core Pipeline
  */
 function renderPersonalizedFeed() {
     tracksGrid.innerHTML = '';
     
-    // Sort items through recommendation engine
     let coreSourcePool = processSmartRecommendations();
     const activeLikesList = userSessionProfile?.likedTracks || clientLikedTracks;
     const activeHistoryList = userSessionProfile?.watchHistory || clientWatchHistory;
 
-    // Filter by navigation view context modes
     if (currentViewMode === 'liked') {
         coreSourcePool = coreSourcePool.filter(t => activeLikesList.includes(t._id || t.id));
         feedHeading.textContent = "Your Liked Collection";
@@ -212,7 +193,6 @@ function renderPersonalizedFeed() {
         feedHeading.textContent = activeFilter === 'music' ? "Music Only Feed" : "Phonk Feed";
     }
 
-    // Apply main query and music category switches
     const compiledOutputList = coreSourcePool.filter(track => {
         const textExpression = (track.title || '').toLowerCase().includes(searchQuery.toLowerCase()) || 
                              (track.producer || '').toLowerCase().includes(searchQuery.toLowerCase());
@@ -223,7 +203,6 @@ function renderPersonalizedFeed() {
         return textExpression;
     });
 
-    // Map content elements dynamically to screen grid container
     compiledOutputList.forEach(track => {
         const trackIdentifier = track._id || track.id;
         const trackIsLiked = activeLikesList.includes(trackIdentifier);
@@ -252,19 +231,18 @@ function renderPersonalizedFeed() {
     if (compiledOutputList.length === 0) {
         tracksGrid.innerHTML = `
             <div class="col-span-full text-center py-16 text-zinc-500 text-sm font-medium">
-                No custom matches found inside the "${currentViewMode}" view state context.
+                No custom matches found inside this feed layout.
             </div>`;
     }
 }
 
 /**
- * 4. Playback and Engagement Event Control Trackers
+ * 4. User Interaction Event Receivers
  */
 async function dispatchPlaybackAction(track) {
     currentTrack = track;
     const currentId = track._id || track.id;
 
-    // Trigger backend logging endpoints for watch history tracking sync
     try {
         await apiRequest('/api/users/history', {
             method: 'POST',
@@ -280,31 +258,24 @@ async function dispatchPlaybackAction(track) {
         }
     }
 
-    // Bind playback info updates to user player control deck
     playerThumb.src = track.thumbnail || 'https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?q=80&w=100';
     playerTitle.textContent = track.title;
     playerProducer.textContent = track.producer || 'Unknown Producer';
     
     isPlaying = true;
-    playerProgress.style.width = '35%'; // Simulate a running status marker
+    playerProgress.style.width = '35%'; 
     
     updateAudioControlBarUI();
-    renderPersonalizedFeed(); // Re-rank dynamically based on interaction
+    renderPersonalizedFeed(); 
 }
 
-/**
- * Syncs audio bar button states (gray loop button, outline/solid heart icon)
- */
 function updateAudioControlBarUI() {
-    // A. Play/Pause Mutation
     playIcon.className = isPlaying ? "fa-solid fa-pause text-xs" : "fa-solid fa-play translate-x-[1px] text-xs";
 
-    // B. Loop Toggle Color Classes
     playerLoopBtn.className = isLooping 
         ? "text-purple-500 hover:text-purple-400 transition-colors text-base focus:outline-none" 
         : "text-zinc-500 hover:text-zinc-300 transition-colors text-base focus:outline-none";
 
-    // C. Like Toggle Color Classes (Hollow/Solid Toggle Conversion Engine)
     const activeLikes = userSessionProfile?.likedTracks || clientLikedTracks;
     const isCurrentLiked = currentTrack && activeLikes.includes(currentTrack._id || currentTrack.id);
 
@@ -317,7 +288,6 @@ function updateAudioControlBarUI() {
     }
 }
 
-// Media Audio Bar Click Registries
 playerPlayBtn.addEventListener('click', () => {
     if (!currentTrack) return;
     isPlaying = !isPlaying;
@@ -334,14 +304,12 @@ playerLikeBtn.addEventListener('click', async () => {
     const currentId = currentTrack._id || currentTrack.id;
 
     try {
-        // Ping actual database backend favorite toggle endpoint route mappings
         const systemResponse = await apiRequest('/api/users/like', {
             method: 'POST',
             body: JSON.stringify({ trackId: currentId })
         });
         if (userSessionProfile) userSessionProfile.likedTracks = systemResponse.likedTracks;
     } catch (e) {
-        // Secure fail-soft tracking array updates if backend network route drops
         const position = clientLikedTracks.indexOf(currentId);
         if (position === -1) {
             clientLikedTracks.push(currentId);
@@ -352,11 +320,11 @@ playerLikeBtn.addEventListener('click', async () => {
     }
 
     updateAudioControlBarUI();
-    renderPersonalizedFeed(); // Instantly update recommendation rankings based on explicit favorite feedback loop
+    renderPersonalizedFeed(); 
 });
 
 /**
- * 5. Interface View Filter Event Toggles
+ * 5. Interface Filter Event Hooks
  */
 filterAllBtn.addEventListener('click', () => {
     activeFilter = 'all';
@@ -372,7 +340,6 @@ filterMusicBtn.addEventListener('click', () => {
     renderPersonalizedFeed();
 });
 
-// Sidebar Navigation Switch Route Hooks
 const manageMenuViewState = (element, modeKey) => {
     [navHome, navFollowing, navRecent, navLiked].forEach(btn => {
         btn.className = "w-full flex items-center gap-3.5 text-sm font-bold text-zinc-400 hover:text-white px-4 py-3 rounded-xl transition-all text-left";
@@ -387,14 +354,13 @@ navFollowing.addEventListener('click', () => manageMenuViewState(navFollowing, '
 navRecent.addEventListener('click', () => manageMenuViewState(navRecent, 'recent'));
 navLiked.addEventListener('click', () => manageMenuViewState(navLiked, 'liked'));
 
-// Live Search Input Dispatch
 searchInput.addEventListener('input', (event) => {
     searchQuery = event.target.value;
     renderPersonalizedFeed();
 });
 
 /**
- * 6. Authentic Authentication Layer Submission Interface Controllers
+ * 6. Fix for Auth Submission Event Race Conditions
  */
 function displayAuthPortal(shouldShow) {
     if (shouldShow) {
@@ -416,9 +382,16 @@ authToggleBtn.addEventListener('click', (e) => {
 });
 
 authForm.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    authError.classList.add('hidden');
+    // CRITICAL: Stop the browser page reload to protect state variables
+    e.preventDefault(); 
     
+    authError.classList.add('hidden');
+    authError.textContent = '';
+    
+    const originalBtnText = authSubmitBtn.textContent;
+    authSubmitBtn.textContent = isRegisterMode ? "REGISTERING..." : "LOGGING IN...";
+    authSubmitBtn.disabled = true;
+
     const targetEndpoint = isRegisterMode ? '/api/auth/register' : '/api/auth/login';
     const payloadBody = {
         username: authUsernameInput.value.trim(),
@@ -431,17 +404,25 @@ authForm.addEventListener('submit', async (e) => {
             body: JSON.stringify(payloadBody)
         });
 
-        if (responseData.token) {
+        if (responseData && responseData.token) {
             localStorage.setItem('melodify_token', responseData.token);
+            
+            // Clear inputs ONLY after verified success response
             authUsernameInput.value = '';
             authPasswordInput.value = '';
+            
             await synchronizeAuthentication();
         } else {
-            throw new Error("Missing authentication credentials response token wrapper mapping.");
+            throw new Error("Missing authentication token from server response.");
         }
     } catch (err) {
+        console.error("Auth Stack Trace Exception:", err);
+        // Retain values on error so user doesn't lose credentials text entries
         authError.textContent = err.message || (isRegisterMode ? "Server registration failure." : "Login authentication failure.");
         authError.classList.remove('hidden');
+    } finally {
+        authSubmitBtn.textContent = originalBtnText;
+        authSubmitBtn.disabled = false;
     }
 });
 
@@ -455,6 +436,6 @@ logoutBtn.addEventListener('click', () => {
     displayAuthPortal(true);
 });
 
-// App Engine Launch Triggers
+// App Bootstrap Init
 updateAudioControlBarUI();
 synchronizeAuthentication();
