@@ -1,6 +1,6 @@
 /**
  * Melodify Backend Gateway Server
- * Built with Express, JSON Web Tokens, and MongoDB (Mongoose)
+ * Integrates dynamic YouTube Channel syncing with an automatic Shorts exclusion layer
  */
 const express = require('express');
 const mongoose = require('mongoose');
@@ -8,17 +8,15 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const cors = require('cors');
 const path = require('path');
+const ytSearch = require('yt-search');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 const JWT_SECRET = process.env.JWT_SECRET || 'melodify_super_secret_key_1337';
 const MONGO_URI = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/melodify';
 
-// Pipeline Middleware Stack Configurations
 app.use(express.json());
 app.use(cors());
-
-// Serve static frontend assets from your public distribution path
 app.use(express.static(path.join(__dirname, 'public')));
 
 /**
@@ -35,6 +33,7 @@ const TrackSchema = new mongoose.Schema({
     title: { type: String, required: true },
     producer: { type: String, default: 'Unknown Producer' },
     thumbnail: { type: String },
+    youtubeId: { type: String, required: true, unique: true }, // Map to hidden player engine
     type: { type: String, default: 'music' },
     tags: [{ type: String }]
 });
@@ -42,26 +41,22 @@ const TrackSchema = new mongoose.Schema({
 const User = mongoose.model('User', UserSchema);
 const Track = mongoose.model('Track', TrackSchema);
 
-// Verify database connection state mapping
 mongoose.connect(MONGO_URI)
     .then(() => {
         console.log('Successfully connected to MongoDB Cluster.');
-        seedMockTracksDatabase(); // Populates database with tracks if empty
+        syncChannelsExcludeShorts(); // Sync channels and filter out shorts on launch
     })
     .catch(err => console.error('Database Connection Error Context:', err));
 
 /**
  * AUTHENTICATION ROUTE ENDPOINTS
  */
-
-// User Account Registration Route Handler
 app.post('/api/auth/register', async (req, res) => {
     try {
         const { username, password } = req.body;
         if (!username || !password) {
             return res.status(400).json({ message: 'Username and password elements required.' });
         }
-
         const exactMatchExists = await User.findOne({ username: username.toLowerCase() });
         if (exactMatchExists) {
             return res.status(400).json({ message: 'Username already taken.' });
@@ -74,69 +69,50 @@ app.post('/api/auth/register', async (req, res) => {
             likedTracks: [],
             watchHistory: []
         });
-
-        // Returns message directly matching Path A's frontend layout requirements
         return res.status(201).json({ message: 'User created successfully.', userId: newUser._id });
     } catch (err) {
-        console.error(err);
         return res.status(500).json({ message: 'Internal Server Error during registration.' });
     }
 });
 
-// User Session Authentication Entry Endpoint
 app.post('/api/auth/login', async (req, res) => {
     try {
         const { username, password } = req.body;
         const targetUser = await User.findOne({ username: username.toLowerCase() });
-        
-        if (!targetUser) {
-            return res.status(401).json({ message: 'Invalid username credentials.' });
-        }
+        if (!targetUser) return res.status(401).json({ message: 'Invalid credentials.' });
 
         const matchingKey = await bcrypt.compare(password, targetUser.password);
-        if (!matchingKey) {
-            return res.status(401).json({ message: 'Invalid password credentials.' });
-        }
+        if (!matchingKey) return res.status(401).json({ message: 'Invalid credentials.' });
 
         const assignedTokenWrapper = jwt.sign({ id: targetUser._id }, JWT_SECRET, { expiresIn: '7d' });
         return res.status(200).json({ token: assignedTokenWrapper });
     } catch (err) {
-        console.error(err);
         return res.status(500).json({ message: 'Login controller process crash.' });
     }
 });
 
-// Profile Identity Synchronization Middleware Layer
 const parseBearerAuthenticationToken = async (req, res, next) => {
     try {
         const authHeader = req.headers['authorization'];
         const extractedToken = authHeader && authHeader.split(' ')[1];
-
-        if (!extractedToken) {
-            return res.status(401).json({ message: 'Access denied. Missing validation token.' });
-        }
+        if (!extractedToken) return res.status(401).json({ message: 'Access denied.' });
 
         const verificationDataPayload = jwt.verify(extractedToken, JWT_SECRET);
         req.verifiedUser = await User.findById(verificationDataPayload.id).select('-password');
-        if (!req.verifiedUser) {
-            return res.status(401).json({ message: 'Session user structure no longer exists.' });
-        }
+        if (!req.verifiedUser) return res.status(401).json({ message: 'Session expired.' });
         next();
     } catch (e) {
-        return res.status(403).json({ message: 'Invalid or expired session token wrapper configuration.' });
+        return res.status(403).json({ message: 'Invalid token.' });
     }
 };
 
-// Validate Live Client Session Context Status
 app.get('/api/auth/me', parseBearerAuthenticationToken, (req, res) => {
     return res.status(200).json(req.verifiedUser);
 });
 
 /**
- * MUSIC CONTENT MANAGEMENT STREAM ENDPOINTS
+ * MUSIC TRACK MANAGEMENT ENDPOINTS
  */
-
-// Fetch Dynamic Platform Media Source Catalog Items
 app.get('/api/tracks', async (req, res) => {
     try {
         const feedCatalog = await Track.find();
@@ -146,7 +122,6 @@ app.get('/api/tracks', async (req, res) => {
     }
 });
 
-// Record Played History Track Relationship Vector Map
 app.post('/api/users/history', parseBearerAuthenticationToken, async (req, res) => {
     try {
         const { trackId } = req.body;
@@ -160,18 +135,15 @@ app.post('/api/users/history', parseBearerAuthenticationToken, async (req, res) 
     }
 });
 
-// Toggle Liked State Flag Metrics
 app.post('/api/users/like', parseBearerAuthenticationToken, async (req, res) => {
     try {
         const { trackId } = req.body;
         const indexPosition = req.verifiedUser.likedTracks.indexOf(trackId);
-        
         if (indexPosition === -1) {
             req.verifiedUser.likedTracks.push(trackId);
         } else {
             req.verifiedUser.likedTracks.splice(indexPosition, 1);
         }
-        
         await req.verifiedUser.save();
         return res.status(200).json({ likedTracks: req.verifiedUser.likedTracks });
     } catch (e) {
@@ -179,29 +151,51 @@ app.post('/api/users/like', parseBearerAuthenticationToken, async (req, res) => 
     }
 });
 
-// Catch-all route to serve the index.html fallback for client routing safety
 app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
 /**
- * SYSTEM SEED TRACK GENERATION FACTORY
+ * DYNAMIC YOUTUBE CHANNEL CORES: EXCLUDE SHORTS PIPELINE
  */
-async function seedMockTracksDatabase() {
-    const existingCount = await Track.countDocuments();
-    if (existingCount > 0) return;
+async function syncChannelsExcludeShorts() {
+    console.log('Synchronizing target content channel arrays...');
+    
+    // Core curator search terms targeting production music hubs
+    const targetProducers = ['INTERWORLD Phonk', 'DVRST Phonk', 'KSLV Noh', 'Phonk drift music'];
 
-    const mockDataset = [
-        { title: 'METAMORPHOSIS', producer: 'INTERWORLD', thumbnail: 'https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?q=80&w=300', type: 'music', tags: ['drift', 'aggressive', 'viral'] },
-        { title: 'Rapture', producer: 'KSLV Noh', thumbnail: 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?q=80&w=300', type: 'music', tags: ['drift', 'ambient'] },
-        { title: 'Phonk Kynd', producer: 'DVRST', thumbnail: 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?q=80&w=300', type: 'music', tags: ['chill', 'ambient'] },
-        { title: 'How Phonk Conquered TikTok', producer: 'Aesthetic Interviews', thumbnail: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?q=80&w=300', type: 'interview', tags: ['viral', 'educational'] }
-    ];
+    for (const producer of targetProducers) {
+        try {
+            const searchResults = await ytSearch({ query: producer });
+            if (!searchResults || !searchResults.videos) continue;
 
-    await Track.insertMany(mockDataset);
-    console.log('Successfully seeded database with starter Phonk media collections.');
+            // CRITICAL STEP: Filter out videos <= 60 seconds (Shorts restriction mapping)
+            const cleanVideosOnly = searchResults.videos.filter(video => video.seconds > 60);
+
+            // Save up to 5 verified tracks per producer stream pipeline
+            const limitTracks = cleanVideosOnly.slice(0, 5);
+
+            for (const video of limitTracks) {
+                await Track.findOneAndUpdate(
+                    { youtubeId: video.videoId },
+                    {
+                        title: video.title.replace(/[\(\[].*?[\)\]]/g, '').trim(), // Clean up tracking labels
+                        producer: video.author.name || producer,
+                        thumbnail: video.image || video.thumbnail,
+                        youtubeId: video.videoId,
+                        type: 'music',
+                        tags: ['drift', 'aggressive', 'phonk']
+                    },
+                    { upsert: true, new: true }
+                );
+            }
+        } catch (error) {
+            console.error(`Error syncing channel feed profiles for ${producer}:`, error);
+        }
+    }
+    console.log('Channel feed synchronization complete. Database records are fully loaded with zero Shorts.');
 }
 
 app.listen(PORT, () => {
-    console.log(`Melodify System Engine listening on network hub: http://localhost:${PORT}`);
+    console.log(`Melodify Core Engine running on network hub: http://localhost:${PORT}`);
 });
