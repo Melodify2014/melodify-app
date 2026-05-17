@@ -377,4 +377,33 @@ body {
     font-weight: 600;
     margin-bottom: 16px;
     text-align: center;
+/* Drift Mode Active Modifiers and Animations */
+.drift-engaged-glow {
+    box-shadow: inset 0 0 60px rgba(220, 38, 38, 0.2);
+    animation: enginePulse 2.5s infinite alternate ease-in-out;
 }
+
+.drift-engaged-glow .sidebar {
+    border-right-color: #dc2626 !important;
+}
+
+.drift-engaged-glow #logo-icon {
+    color: #dc2626;
+    text-shadow: 0 0 10px #dc2626;
+    animation: lightningFlicker 0.8s infinite linear;
+}
+
+.drift-engaged-glow .progress {
+    background-color: #dc2626 !important;
+    box-shadow: 0 0 8px #dc2626;
+}
+
+@keyframes enginePulse {
+    0% { background-color: #141417; }
+    100% { background-color: #1a0b0b; }
+}
+
+@keyframes lightningFlicker {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.7; transform: scale(1.1); }
+}}
