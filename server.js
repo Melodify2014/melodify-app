@@ -1,6 +1,6 @@
 /**
  * Melodify Backend Gateway Server
- * Integrates dynamic YouTube Channel syncing with an automatic Shorts exclusion layer
+ * Real-time YouTube Channel Searching, Shorts Filtering, and User Follow Pipelines
  */
 const express = require('express');
 const mongoose = require('mongoose');
@@ -26,14 +26,15 @@ const UserSchema = new mongoose.Schema({
     username: { type: String, required: true, unique: true },
     password: { type: String, required: true },
     likedTracks: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Track' }],
-    watchHistory: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Track' }]
+    watchHistory: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Track' }],
+    following: { type: [String], default: [] } // Stores exact producer/channel strings
 });
 
 const TrackSchema = new mongoose.Schema({
     title: { type: String, required: true },
     producer: { type: String, default: 'Unknown Producer' },
     thumbnail: { type: String },
-    youtubeId: { type: String, required: true, unique: true }, // Map to hidden player engine
+    youtubeId: { type: String, required: true, unique: true },
     type: { type: String, default: 'music' },
     tags: [{ type: String }]
 });
@@ -44,7 +45,7 @@ const Track = mongoose.model('Track', TrackSchema);
 mongoose.connect(MONGO_URI)
     .then(() => {
         console.log('Successfully connected to MongoDB Cluster.');
-        syncChannelsExcludeShorts(); // Sync channels and filter out shorts on launch
+        syncChannelsExcludeShorts(); 
     })
     .catch(err => console.error('Database Connection Error Context:', err));
 
@@ -67,7 +68,8 @@ app.post('/api/auth/register', async (req, res) => {
             username: username.toLowerCase(),
             password: encryptedPassword,
             likedTracks: [],
-            watchHistory: []
+            watchHistory: [],
+            following: []
         });
         return res.status(201).json({ message: 'User created successfully.', userId: newUser._id });
     } catch (err) {
@@ -111,17 +113,61 @@ app.get('/api/auth/me', parseBearerAuthenticationToken, (req, res) => {
 });
 
 /**
- * MUSIC TRACK MANAGEMENT ENDPOINTS
+ * MUSIC TRACK & SEARCH INTERFACES (LIVE YOUTUBE CORES)
  */
 app.get('/api/tracks', async (req, res) => {
     try {
-        const feedCatalog = await Track.find();
+        const queryToken = req.query.q;
+
+        // If a search query is passed, dynamically query YouTube live and sync matching long-form content
+        if (queryToken && queryToken.trim().length > 0) {
+            try {
+                const searchResults = await ytSearch({ query: queryToken });
+                if (searchResults && searchResults.videos) {
+                    // Filter out Shorts (must be greater than 60 seconds)
+                    const filteredCollection = searchResults.videos.filter(video => video.seconds > 60).slice(0, 12);
+                    
+                    for (const video of filteredCollection) {
+                        await Track.findOneAndUpdate(
+                            { youtubeId: video.videoId },
+                            {
+                                title: video.title.replace(/[\(\[].*?[\)\]]/g, '').trim(),
+                                producer: video.author.name || queryToken,
+                                thumbnail: video.image || video.thumbnail,
+                                youtubeId: video.videoId,
+                                type: 'music',
+                                tags: ['search-sync', 'phonk']
+                            },
+                            { upsert: true, new: true }
+                        );
+                    }
+                }
+            } catch (searchErr) {
+                console.error("Live YouTube sync warning:", searchErr);
+            }
+        }
+
+        // Return matched database items back to frontend client
+        let queryCondition = {};
+        if (queryToken) {
+            queryCondition = {
+                $or: [
+                    { title: { $regex: queryToken, $options: 'i' } },
+                    { producer: { $regex: queryToken, $options: 'i' } }
+                ]
+            };
+        }
+
+        const feedCatalog = await Track.find(queryCondition).limit(40);
         return res.status(200).json(feedCatalog);
     } catch (err) {
         return res.status(500).json({ message: 'Failed reading platform tracks matrix.' });
     }
 });
 
+/**
+ * USER RELATIONSHIP ACTIONS (HISTORY, LIKES, CHANNELS FOLLOWING)
+ */
 app.post('/api/users/history', parseBearerAuthenticationToken, async (req, res) => {
     try {
         const { trackId } = req.body;
@@ -131,7 +177,7 @@ app.post('/api/users/history', parseBearerAuthenticationToken, async (req, res) 
         }
         return res.status(200).json(req.verifiedUser);
     } catch (e) {
-        return res.status(500).json({ message: 'Failed appending history node mapping.' });
+        return res.status(500).json({ message: 'Failed appending history node.' });
     }
 });
 
@@ -151,49 +197,62 @@ app.post('/api/users/like', parseBearerAuthenticationToken, async (req, res) => 
     }
 });
 
+// Follow / Unfollow Toggle Endpoint Layer
+app.post('/api/users/follow', parseBearerAuthenticationToken, async (req, res) => {
+    try {
+        const { producerName } = req.body;
+        if (!producerName) return res.status(400).json({ message: 'Producer identity required.' });
+
+        const searchPosition = req.verifiedUser.following.indexOf(producerName);
+        if (searchPosition === -1) {
+            req.verifiedUser.following.push(producerName); // Follow
+        } else {
+            req.verifiedUser.following.splice(searchPosition, 1); // Unfollow
+        }
+
+        await req.verifiedUser.save();
+        return res.status(200).json({ following: req.verifiedUser.following });
+    } catch (err) {
+        return res.status(500).json({ message: 'Failed processing follow request vectors.' });
+    }
+});
+
 app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
 /**
- * DYNAMIC YOUTUBE CHANNEL CORES: EXCLUDE SHORTS PIPELINE
+ * BASELINE SEED DATA ON REBOOT
  */
 async function syncChannelsExcludeShorts() {
-    console.log('Synchronizing target content channel arrays...');
-    
-    // Core curator search terms targeting production music hubs
-    const targetProducers = ['INTERWORLD Phonk', 'DVRST Phonk', 'KSLV Noh', 'Phonk drift music'];
+    const existingCount = await Track.countDocuments();
+    if (existingCount > 5) return; 
 
-    for (const producer of targetProducers) {
+    const starterHubs = ['INTERWORLD Phonk', 'DVRST Phonk', 'KSLV Noh'];
+    for (const producer of starterHubs) {
         try {
             const searchResults = await ytSearch({ query: producer });
             if (!searchResults || !searchResults.videos) continue;
+            const longVideos = searchResults.videos.filter(v => v.seconds > 60).slice(0, 4);
 
-            // CRITICAL STEP: Filter out videos <= 60 seconds (Shorts restriction mapping)
-            const cleanVideosOnly = searchResults.videos.filter(video => video.seconds > 60);
-
-            // Save up to 5 verified tracks per producer stream pipeline
-            const limitTracks = cleanVideosOnly.slice(0, 5);
-
-            for (const video of limitTracks) {
+            for (const video of longVideos) {
                 await Track.findOneAndUpdate(
                     { youtubeId: video.videoId },
                     {
-                        title: video.title.replace(/[\(\[].*?[\)\]]/g, '').trim(), // Clean up tracking labels
+                        title: video.title.replace(/[\(\[].*?[\)\]]/g, '').trim(),
                         producer: video.author.name || producer,
                         thumbnail: video.image || video.thumbnail,
                         youtubeId: video.videoId,
                         type: 'music',
-                        tags: ['drift', 'aggressive', 'phonk']
+                        tags: ['drift', 'phonk']
                     },
-                    { upsert: true, new: true }
+                    { upsert: true }
                 );
             }
-        } catch (error) {
-            console.error(`Error syncing channel feed profiles for ${producer}:`, error);
+        } catch (e) {
+            console.error("Seeder trace skipped execution steps.");
         }
     }
-    console.log('Channel feed synchronization complete. Database records are fully loaded with zero Shorts.');
 }
 
 app.listen(PORT, () => {
