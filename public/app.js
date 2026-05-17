@@ -1,18 +1,18 @@
 /**
  * Melodify Core Frontend Application Engine
- * Enhanced Youtube Channel Deep Scrapers & Fixed Drift Mode Engines
+ * Deep Channel Navigation Layers and Integrated Drift Mode Execution Core
  */
 
 const BACKEND_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' 
     ? 'http://localhost:5000' 
     : 'https://melodify-phonk.onrender.com'; 
 
-// Application State Profiles
+// Application State Vectors
 let tracksRawCollection = [];
 let userSessionProfile = null;
 let currentTrack = null;
 let isPlaying = false;
-let isDriftModeActive = false; // Fixed Drift Mode configuration vector
+let isDriftModeActive = false; 
 let activeFilter = 'all';
 let searchQuery = '';
 let currentViewMode = 'home'; 
@@ -32,7 +32,7 @@ const feedHeading = document.getElementById('feed-heading');
 const userDisplay = document.getElementById('user-display');
 const logoutBtn = document.getElementById('logout-btn');
 
-// UI Modal References
+// Security Portal Document Elements
 const authModal = document.getElementById('auth-modal');
 const authForm = document.getElementById('auth-form');
 const authTitle = document.getElementById('auth-title');
@@ -43,7 +43,7 @@ const authSubmitBtn = document.getElementById('auth-submit-btn');
 const authToggleBtn = document.getElementById('auth-toggle-btn');
 const authToggleTextLabel = document.getElementById('auth-toggle-text-label');
 
-// Controller Selectors
+// Controller Selector Items
 const playerThumb = document.getElementById('player-thumb');
 const playerTitle = document.getElementById('player-title');
 const playerProducer = document.getElementById('player-producer');
@@ -64,7 +64,7 @@ let ytPlayerEngine = null;
 let searchDebounceTimeout = null; 
 
 /**
- * HOOK BACKGROUND AUDIO RUNTIME ENGINE (YOUTUBE EMBED IFRAME API)
+ * INITIALIZE BACKGROUND AUDIO ENGINE (YOUTUBE EMBED IFRAME RUNTIME)
  */
 (function initializeHiddenPlaybackCore() {
     const frameContainer = document.createElement('div');
@@ -85,10 +85,9 @@ let searchDebounceTimeout = null;
             playerVars: { 'controls': 0, 'disablekb': 1, 'modestbranding': 1 },
             events: {
                 'onStateChange': (event) => {
-                    // When Drift Mode is active, auto-loop the track continuously
                     if (event.data === YT.PlayerState.ENDED) {
                         if (isDriftModeActive) {
-                            ytPlayerEngine.playVideo();
+                            ytPlayerEngine.playVideo(); // Auto-loop track indefinitely
                         } else {
                             isPlaying = false;
                             updateAudioControlBarUI();
@@ -115,7 +114,7 @@ let searchDebounceTimeout = null;
 })();
 
 /**
- * API Fetch Wrapper
+ * HTTP REST Connection Layer APIs
  */
 async function apiRequest(endpoint, options = {}) {
     try {
@@ -125,7 +124,7 @@ async function apiRequest(endpoint, options = {}) {
 
         const response = await fetch(`${BACKEND_URL}${endpoint}`, { ...options, headers });
         const data = await response.json();
-        if (!response.ok) throw new Error(data.message || 'Server error.');
+        if (!response.ok) throw new Error(data.message || 'Network operations pipeline rejected.');
         return data;
     } catch (err) {
         console.error(`Network Failure [${endpoint}]:`, err);
@@ -166,20 +165,20 @@ async function loadTracksDatabase(searchQueryParameter = '', producerParameter =
 }
 
 /**
- * SWITCH TO PRODUCER CHANNEL WORKSPACE
+ * ROUTE NAVIGATION: REDIRECT TO CREATOR CHANNEL VIEW
  */
 async function openChannelView(producerName) {
     currentViewMode = 'channel';
     selectedProducer = producerName;
     
     [navHome, navFollowing, navRecent, navLiked].forEach(btn => btn.classList.remove('active'));
-    tracksGrid.innerHTML = `<div style="grid-column: 1/-1; text-align: center; padding: 40px; color: var(--txt-dim); font-size: 14px;"><i class="fa-solid fa-spinner fa-spin"></i> Loading all videos directly from YouTube Channel uploads...</div>`;
+    tracksGrid.innerHTML = `<div style="grid-column: 1/-1; text-align: center; padding: 40px; color: var(--txt-dim); font-size: 14px;"><i class="fa-solid fa-spinner fa-spin"></i> Indexing deep channel upload directory logs from YouTube...</div>`;
     
     await loadTracksDatabase("", producerName);
 }
 
 /**
- * Content Layout Matrix Renderer
+ * UI Grid Compilation Processing Engine
  */
 function renderPersonalizedFeed() {
     tracksGrid.innerHTML = '';
@@ -188,7 +187,7 @@ function renderPersonalizedFeed() {
     const activeHistoryList = userSessionProfile?.watchHistory || clientWatchHistory;
     const activeFollowingList = userSessionProfile?.following || clientFollowingList;
 
-    // View State Interception: Render Following Channels Directory List
+    // View Mapping Condition: Generate Clean Directories for Following View States
     if (currentViewMode === 'following') {
         feedHeading.textContent = "Following Channels";
         if (activeFollowingList.length === 0) {
@@ -228,7 +227,6 @@ function renderPersonalizedFeed() {
         feedHeading.textContent = activeFilter === 'music' ? "Music Only Feed" : "Phonk Feed";
     }
 
-    // Filter pipeline logic
     const compiledOutputList = coreSourcePool.filter(track => {
         if (activeFilter === 'music') return track.type === 'music';
         return true;
@@ -285,10 +283,14 @@ function renderPersonalizedFeed() {
         cardBlock.addEventListener('click', () => dispatchPlaybackAction(track));
         tracksGrid.appendChild(cardBlock);
     });
+
+    if (compiledOutputList.length === 0) {
+        tracksGrid.innerHTML = `<div style="grid-column: 1 / -1; padding: 60px 0; color: var(--txt-dim); font-size: 14px; text-align: center;">No tracks found inside this layout frame context.</div>`;
+    }
 }
 
 /**
- * Media Control Dispatch Units
+ * Audio Track Player Engine Commands
  */
 async function dispatchPlaybackAction(track) {
     currentTrack = track;
@@ -318,7 +320,6 @@ async function dispatchPlaybackAction(track) {
 function updateAudioControlBarUI() {
     playIcon.className = isPlaying ? "fa-solid fa-pause" : "fa-solid fa-play";
     
-    // Toggle system styles depending on Drift Mode status
     if (isDriftModeActive) {
         playerDriftBtn.className = "ctrl-btn active";
         playerDriftBtn.style.color = "#dc2626";
@@ -335,7 +336,6 @@ function updateAudioControlBarUI() {
     likeIcon.className = isCurrentLiked ? "fa-solid fa-heart" : "fa-regular fa-heart";
 }
 
-// Media event registrations
 playerPlayBtn.addEventListener('click', () => {
     if (!currentTrack || !ytPlayerEngine) return;
     isPlaying = !isPlaying;
@@ -344,7 +344,6 @@ playerPlayBtn.addEventListener('click', () => {
     updateAudioControlBarUI();
 });
 
-// Fixed Drift Mode Action Listener Engine
 playerDriftBtn.addEventListener('click', () => {
     isDriftModeActive = !isDriftModeActive;
     updateAudioControlBarUI();
@@ -368,7 +367,7 @@ playerLikeBtn.addEventListener('click', async () => {
 });
 
 /**
- * Live Search Configurations
+ * Input Query Interceptors
  */
 searchInput.addEventListener('input', (event) => {
     searchQuery = event.target.value;
@@ -382,7 +381,20 @@ searchInput.addEventListener('input', (event) => {
     }, 500); 
 });
 
-// View states binding matrix
+filterAllBtn.addEventListener('click', () => {
+    activeFilter = 'all';
+    filterAllBtn.style.background = "#fff"; filterAllBtn.style.color = "#000";
+    filterMusicBtn.style.background = "#141417"; filterMusicBtn.style.color = "var(--txt-dim)";
+    renderPersonalizedFeed();
+});
+
+filterMusicBtn.addEventListener('click', () => {
+    activeFilter = 'music';
+    filterMusicBtn.style.background = "#fff"; filterMusicBtn.style.color = "#000";
+    filterAllBtn.style.background = "#141417"; filterAllBtn.style.color = "var(--txt-dim)";
+    renderPersonalizedFeed();
+});
+
 const manageMenuViewState = (element, modeKey) => {
     [navHome, navFollowing, navRecent, navLiked].forEach(btn => btn.classList.remove('active'));
     element.classList.add('active');
@@ -399,7 +411,7 @@ navRecent.addEventListener('click', () => manageMenuViewState(navRecent, 'recent
 navLiked.addEventListener('click', () => manageMenuViewState(navLiked, 'liked'));
 
 /**
- * Authentication Sessions
+ * Security Management Controls
  */
 function displayAuthPortal(shouldShow) {
     authModal.style.display = shouldShow ? 'flex' : 'none';
