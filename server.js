@@ -1,6 +1,5 @@
 /**
- * Melodify Backend Gateway Server
- * Robust Deep-Search Engine Optimization for Massive Channel Playlists
+ * Melodify Production Backend Gateway Server
  */
 const express = require('express');
 const mongoose = require('mongoose');
@@ -70,19 +69,21 @@ const parseBearerAuthenticationToken = async (req, res, next) => {
 app.post('/api/auth/register', async (req, res) => {
     try {
         const { username, password } = req.body;
-        if (!username || !password) return res.status(400).json({ message: 'Credentials required.' });
+        if (!username || !password) return res.status(400).json({ message: 'Username and password required.' });
         const exists = await User.findOne({ username: username.toLowerCase() });
-        if (exists) return res.status(400).json({ message: 'Username taken.' });
+        if (exists) return res.status(400).json({ message: 'Username already taken.' });
 
         const encryptedPassword = await bcrypt.hash(password, 10);
         await User.create({ username: username.toLowerCase(), password: encryptedPassword });
-        return res.status(201).json({ message: 'User created.' });
+        return res.status(201).json({ message: 'User created successfully.' });
     } catch (err) { return res.status(500).json({ message: 'Registration failed.' }); }
 });
 
 app.post('/api/auth/login', async (req, res) => {
     try {
         const { username, password } = req.body;
+        if (!username || !password) return res.status(400).json({ message: 'Username and password required.' });
+        
         const user = await User.findOne({ username: username.toLowerCase() });
         if (!user || !(await bcrypt.compare(password, user.password))) {
             return res.status(401).json({ message: 'Invalid credentials.' });
@@ -97,7 +98,7 @@ app.get('/api/auth/me', parseBearerAuthenticationToken, (req, res) => {
 });
 
 /**
- * RE-ENGINEERED TRACK ENGINE ENDPOINT
+ * TRACK SCAPER & FINDER ENDPOINT
  */
 app.get('/api/tracks', async (req, res) => {
     try {
@@ -106,19 +107,10 @@ app.get('/api/tracks', async (req, res) => {
 
         if (producerTarget && producerTarget.trim().length > 0) {
             try {
-                // Completely bypass the broken 18-video channel API loop.
-                // Run an intensive structural search locked directly to the creator's upload name.
-                const intensiveSearch = await ytSearch({ query: `"${producerTarget}" song music`, pages: 3 });
-                
+                const intensiveSearch = await ytSearch({ query: `"${producerTarget}" song music`, pages: 2 });
                 if (intensiveSearch && intensiveSearch.videos) {
-                    // Filter down to long-form songs, throwing out shorts/clips
-                    const filteredItems = intensiveSearch.videos.filter(v => {
-                        const isMatch = v.author.name.toLowerCase().includes(producerTarget.toLowerCase()) || 
-                                        v.title.toLowerCase().includes(producerTarget.toLowerCase());
-                        return isMatch && (v.seconds || 0) > 45;
-                    });
+                    const filteredItems = intensiveSearch.videos.filter(v => (v.seconds || 0) > 45);
 
-                    // Bulk insert/update discovered media maps directly into your Mongo cache
                     for (const video of filteredItems) {
                         const cleanTitle = video.title.replace(/[\(\[].*?[\)\]]/g, '').trim();
                         const isDriftPhonk = /drift|phonk|rave|lxst|dxrk/i.test(video.title);
@@ -137,15 +129,12 @@ app.get('/api/tracks', async (req, res) => {
                         );
                     }
                 }
-            } catch (err) {
-                console.error("Scraper update skipped gracefully:", err);
-            }
+            } catch (err) { console.error("Scraper update skipped gracefully:", err); }
         } else if (queryToken && queryToken.trim().length > 0) {
-            // General feed search query loop fallback handler
             try {
                 const standardSearch = await ytSearch({ query: queryToken });
                 if (standardSearch && standardSearch.videos) {
-                    for (const video of standardSearch.videos.slice(0, 50)) {
+                    for (const video of standardSearch.videos.slice(0, 30)) {
                         if ((video.seconds || 0) < 45) continue;
                         const cleanTitle = video.title.replace(/[\(\[].*?[\)\]]/g, '').trim();
                         await Track.findOneAndUpdate(
@@ -165,7 +154,6 @@ app.get('/api/tracks', async (req, res) => {
             } catch (e) {}
         }
 
-        // Database Filtering Execution Core
         let queryCondition = {};
         if (producerTarget) {
             queryCondition = { producer: { $regex: producerTarget, $options: 'i' } };
@@ -178,7 +166,6 @@ app.get('/api/tracks', async (req, res) => {
             };
         }
 
-        // Display up to 500 records smoothly on screen
         const feedCatalog = await Track.find(queryCondition).sort({ _id: -1 }).limit(500);
         return res.status(200).json(feedCatalog);
     } catch (err) {
@@ -187,7 +174,7 @@ app.get('/api/tracks', async (req, res) => {
 });
 
 /**
- * ACTION ROUTING HANDLERS
+ * ACTIONS ENDPOINTS
  */
 app.post('/api/users/history', parseBearerAuthenticationToken, async (req, res) => {
     try {
@@ -208,7 +195,7 @@ app.post('/api/users/like', parseBearerAuthenticationToken, async (req, res) => 
         else req.verifiedUser.likedTracks.splice(pos, 1);
         await req.verifiedUser.save();
         return res.status(200).json({ likedTracks: req.verifiedUser.likedTracks });
-    } catch (e) { return res.status(500).json({ message: 'Like configuration failed.' }); }
+    } catch (e) { return res.status(500).json({ message: 'Like failed.' }); }
 });
 
 app.post('/api/users/follow', parseBearerAuthenticationToken, async (req, res) => {
@@ -226,4 +213,4 @@ app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-app.listen(PORT, () => console.log(`Server executing at http://localhost:${PORT}`));
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
