@@ -1,6 +1,6 @@
 /**
  * Melodify Backend Gateway Server
- * Optimized for Deep Channel Syncing and Multi-Video Scraping
+ * Robust Deep-Search Engine Optimization for Massive Channel Playlists
  */
 const express = require('express');
 const mongoose = require('mongoose');
@@ -20,7 +20,7 @@ app.use(cors());
 app.use(express.static(path.join(__dirname, 'public')));
 
 /**
- * DATABASE MODEL SCHEMA CONSTRUCTORS
+ * DATABASE CONFIGURATION
  */
 const UserSchema = new mongoose.Schema({
     username: { type: String, required: true, unique: true },
@@ -43,8 +43,8 @@ const User = mongoose.model('User', UserSchema);
 const Track = mongoose.model('Track', TrackSchema);
 
 mongoose.connect(MONGO_URI)
-    .then(() => console.log('Successfully connected to MongoDB.'))
-    .catch(err => console.error('Database Connection Error:', err));
+    .then(() => console.log('Connected to MongoDB.'))
+    .catch(err => console.error('Database Error:', err));
 
 /**
  * AUTHENTICATION MIDDLEWARE
@@ -65,43 +65,31 @@ const parseBearerAuthenticationToken = async (req, res, next) => {
 };
 
 /**
- * AUTHENTICATION ROUTING INTERFACES
+ * AUTHENTICATION ENDPOINTS
  */
 app.post('/api/auth/register', async (req, res) => {
     try {
         const { username, password } = req.body;
-        if (!username || !password) return res.status(400).json({ message: 'Username and password required.' });
-        
-        const exactMatchExists = await User.findOne({ username: username.toLowerCase() });
-        if (exactMatchExists) return res.status(400).json({ message: 'Username already taken.' });
+        if (!username || !password) return res.status(400).json({ message: 'Credentials required.' });
+        const exists = await User.findOne({ username: username.toLowerCase() });
+        if (exists) return res.status(400).json({ message: 'Username taken.' });
 
         const encryptedPassword = await bcrypt.hash(password, 10);
-        await User.create({
-            username: username.toLowerCase(),
-            password: encryptedPassword,
-            likedTracks: [],
-            watchHistory: [],
-            following: []
-        });
-        return res.status(201).json({ message: 'User created successfully.' });
-    } catch (err) {
-        return res.status(500).json({ message: 'Internal Server Error during registration.' });
-    }
+        await User.create({ username: username.toLowerCase(), password: encryptedPassword });
+        return res.status(201).json({ message: 'User created.' });
+    } catch (err) { return res.status(500).json({ message: 'Registration failed.' }); }
 });
 
 app.post('/api/auth/login', async (req, res) => {
     try {
         const { username, password } = req.body;
-        const targetUser = await User.findOne({ username: username.toLowerCase() });
-        if (!targetUser || !(await bcrypt.compare(password, targetUser.password))) {
+        const user = await User.findOne({ username: username.toLowerCase() });
+        if (!user || !(await bcrypt.compare(password, user.password))) {
             return res.status(401).json({ message: 'Invalid credentials.' });
         }
-
-        const assignedTokenWrapper = jwt.sign({ id: targetUser._id }, JWT_SECRET, { expiresIn: '7d' });
-        return res.status(200).json({ token: assignedTokenWrapper });
-    } catch (err) {
-        return res.status(500).json({ message: 'Login process crash.' });
-    }
+        const token = jwt.sign({ id: user._id }, JWT_SECRET, { expiresIn: '7d' });
+        return res.status(200).json({ token });
+    } catch (err) { return res.status(500).json({ message: 'Login failed.' }); }
 });
 
 app.get('/api/auth/me', parseBearerAuthenticationToken, (req, res) => {
@@ -109,65 +97,78 @@ app.get('/api/auth/me', parseBearerAuthenticationToken, (req, res) => {
 });
 
 /**
- * DEEP CHANNELS & TRACK FEED API ENDPOINT
+ * RE-ENGINEERED TRACK ENGINE ENDPOINT
  */
 app.get('/api/tracks', async (req, res) => {
     try {
         const queryToken = req.query.q;
         const producerTarget = req.query.producer;
 
-        const activeSearchTerm = producerTarget || queryToken;
-        if (activeSearchTerm && activeSearchTerm.trim().length > 0) {
+        if (producerTarget && producerTarget.trim().length > 0) {
             try {
-                // Pinpoint the channel context infrastructure explicitly
-                const channelSearch = await ytSearch({ query: activeSearchTerm, category: 'channels' });
-                let searchTargetPool = [];
+                // Completely bypass the broken 18-video channel API loop.
+                // Run an intensive structural search locked directly to the creator's upload name.
+                const intensiveSearch = await ytSearch({ query: `"${producerTarget}" song music`, pages: 3 });
+                
+                if (intensiveSearch && intensiveSearch.videos) {
+                    // Filter down to long-form songs, throwing out shorts/clips
+                    const filteredItems = intensiveSearch.videos.filter(v => {
+                        const isMatch = v.author.name.toLowerCase().includes(producerTarget.toLowerCase()) || 
+                                        v.title.toLowerCase().includes(producerTarget.toLowerCase());
+                        return isMatch && (v.seconds || 0) > 45;
+                    });
 
-                if (channelSearch && channelSearch.channels && channelSearch.channels.length > 0) {
-                    const matchedChannel = channelSearch.channels[0];
-                    
-                    // Pull full feed parameters directly from channel ID attributes
-                    const fullChannelFeed = await ytSearch({ channelId: matchedChannel.id });
-                    if (fullChannelFeed && fullChannelFeed.videos) {
-                        // Gather up to 250 records from the creator's upload playlist history
-                        searchTargetPool = fullChannelFeed.videos.slice(0, 250); 
+                    // Bulk insert/update discovered media maps directly into your Mongo cache
+                    for (const video of filteredItems) {
+                        const cleanTitle = video.title.replace(/[\(\[].*?[\)\]]/g, '').trim();
+                        const isDriftPhonk = /drift|phonk|rave|lxst|dxrk/i.test(video.title);
+
+                        await Track.findOneAndUpdate(
+                            { youtubeId: video.videoId },
+                            {
+                                title: cleanTitle,
+                                producer: producerTarget,
+                                thumbnail: video.image || video.thumbnail,
+                                youtubeId: video.videoId,
+                                type: 'music',
+                                tags: isDriftPhonk ? ['drift', 'phonk'] : ['music']
+                            },
+                            { upsert: true }
+                        );
                     }
                 }
-
-                // Fall back to standard search query loops if channel arrays are empty
-                if (searchTargetPool.length === 0) {
-                    const regularSearch = await ytSearch({ query: activeSearchTerm });
-                    searchTargetPool = regularSearch.videos || [];
-                }
-
-                // Exclude shorts/clips and bulk sync local cache matrix
-                const targetedVideos = searchTargetPool.filter(video => (video.seconds || 0) > 45);
-                for (const video of targetedVideos) {
-                    const cleanTitle = video.title.replace(/[\(\[].*?[\)\]]/g, '').trim();
-                    const isDriftPhonk = /drift|phonk|rave|lxst|dxrk/i.test(video.title);
-
-                    await Track.findOneAndUpdate(
-                        { youtubeId: video.videoId },
-                        {
-                            title: cleanTitle,
-                            producer: producerTarget || video.author.name || 'Unknown Producer',
-                            thumbnail: video.image || video.thumbnail,
-                            youtubeId: video.videoId,
-                            type: 'music',
-                            tags: isDriftPhonk ? ['drift', 'phonk'] : ['music']
-                        },
-                        { upsert: true }
-                    );
-                }
-            } catch (searchErr) {
-                console.error("Deep video scraper sync bypassed:", searchErr);
+            } catch (err) {
+                console.error("Scraper update skipped gracefully:", err);
             }
+        } else if (queryToken && queryToken.trim().length > 0) {
+            // General feed search query loop fallback handler
+            try {
+                const standardSearch = await ytSearch({ query: queryToken });
+                if (standardSearch && standardSearch.videos) {
+                    for (const video of standardSearch.videos.slice(0, 50)) {
+                        if ((video.seconds || 0) < 45) continue;
+                        const cleanTitle = video.title.replace(/[\(\[].*?[\)\]]/g, '').trim();
+                        await Track.findOneAndUpdate(
+                            { youtubeId: video.videoId },
+                            {
+                                title: cleanTitle,
+                                producer: video.author.name || 'Unknown Producer',
+                                thumbnail: video.image || video.thumbnail,
+                                youtubeId: video.videoId,
+                                type: 'music',
+                                tags: ['music']
+                            },
+                            { upsert: true }
+                        );
+                    }
+                }
+            } catch (e) {}
         }
 
-        // Build database index filter selectors
+        // Database Filtering Execution Core
         let queryCondition = {};
         if (producerTarget) {
-            queryCondition = { producer: producerTarget };
+            queryCondition = { producer: { $regex: producerTarget, $options: 'i' } };
         } else if (queryToken) {
             queryCondition = {
                 $or: [
@@ -177,16 +178,16 @@ app.get('/api/tracks', async (req, res) => {
             };
         }
 
-        // Cap lifted to 500 to render huge playlists (like CG5's complete collection)
+        // Display up to 500 records smoothly on screen
         const feedCatalog = await Track.find(queryCondition).sort({ _id: -1 }).limit(500);
         return res.status(200).json(feedCatalog);
     } catch (err) {
-        return res.status(500).json({ message: 'Failed reading platform tracks matrix.' });
+        return res.status(500).json({ message: 'Failed reading tracks matrix.' });
     }
 });
 
 /**
- * USER INTERACTION ROUTING VECTORS
+ * ACTION ROUTING HANDLERS
  */
 app.post('/api/users/history', parseBearerAuthenticationToken, async (req, res) => {
     try {
@@ -196,7 +197,7 @@ app.post('/api/users/history', parseBearerAuthenticationToken, async (req, res) 
             await req.verifiedUser.save();
         }
         return res.status(200).json(req.verifiedUser);
-    } catch (e) { return res.status(500).json({ message: 'Failed appending history.' }); }
+    } catch (e) { return res.status(500).json({ message: 'Failed writing history.' }); }
 });
 
 app.post('/api/users/like', parseBearerAuthenticationToken, async (req, res) => {
@@ -207,7 +208,7 @@ app.post('/api/users/like', parseBearerAuthenticationToken, async (req, res) => 
         else req.verifiedUser.likedTracks.splice(pos, 1);
         await req.verifiedUser.save();
         return res.status(200).json({ likedTracks: req.verifiedUser.likedTracks });
-    } catch (e) { return res.status(500).json({ message: 'Failed updating like.' }); }
+    } catch (e) { return res.status(500).json({ message: 'Like configuration failed.' }); }
 });
 
 app.post('/api/users/follow', parseBearerAuthenticationToken, async (req, res) => {
@@ -218,13 +219,11 @@ app.post('/api/users/follow', parseBearerAuthenticationToken, async (req, res) =
         else req.verifiedUser.following.splice(pos, 1);
         await req.verifiedUser.save();
         return res.status(200).json({ following: req.verifiedUser.following });
-    } catch (err) { return res.status(500).json({ message: 'Failed updating follow state.' }); }
+    } catch (err) { return res.status(500).json({ message: 'Follow alteration failure.' }); }
 });
 
 app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-app.listen(PORT, () => {
-    console.log(`Melodify Core Engine running on network hub: http://localhost:${PORT}`);
-});
+app.listen(PORT, () => console.log(`Server executing at http://localhost:${PORT}`));
