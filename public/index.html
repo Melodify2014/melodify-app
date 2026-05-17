@@ -8,10 +8,10 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
-    <div class="app-container">
+    <div class="app-container" id="app-viewport">
         <aside class="sidebar">
             <div class="logo">
-                <i class="fa-solid fa-bolt"></i> <span>MELODIFY</span>
+                <i class="fa-solid fa-bolt" id="logo-icon"></i> <span>MELODIFY</span>
             </div>
             <nav class="menu">
                 <button id="nav-home" class="menu-item active"><i class="fa-solid fa-house"></i> Home</button>
@@ -57,7 +57,7 @@
 
             <div class="player-controls">
                 <div class="buttons">
-                    <button id="player-loop-btn" class="ctrl-btn"><i class="fa-solid fa-repeat"></i></button>
+                    <button id="player-drift-btn" class="ctrl-btn" title="Toggle Drift Mode"><i class="fa-solid fa-gauge-high"></i></button>
                     <button id="player-play-btn" class="ctrl-btn play-main"><i id="play-icon" class="fa-solid fa-play"></i></button>
                     <button id="player-like-btn" class="ctrl-btn"><i id="like-icon" class="fa-regular fa-heart"></i></button>
                 </div>
