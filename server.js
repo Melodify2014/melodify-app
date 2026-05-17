@@ -1,6 +1,6 @@
 /**
  * Melodify Backend Gateway Server
- * Upgraded Channel Scrapers and Added Drift Mode Support
+ * Optimized for Deep Channel Syncing and Multi-Video Scraping
  */
 const express = require('express');
 const mongoose = require('mongoose');
@@ -43,8 +43,8 @@ const User = mongoose.model('User', UserSchema);
 const Track = mongoose.model('Track', TrackSchema);
 
 mongoose.connect(MONGO_URI)
-    .then(() => console.log('Connected to MongoDB.'))
-    .catch(err => console.error('Database Error:', err));
+    .then(() => console.log('Successfully connected to MongoDB.'))
+    .catch(err => console.error('Database Connection Error:', err));
 
 /**
  * AUTHENTICATION MIDDLEWARE
@@ -64,32 +64,43 @@ const parseBearerAuthenticationToken = async (req, res, next) => {
     }
 };
 
+/**
+ * AUTHENTICATION ROUTING INTERFACES
+ */
 app.post('/api/auth/register', async (req, res) => {
     try {
         const { username, password } = req.body;
-        if (!username || !password) return res.status(400).json({ message: 'Credentials required.' });
-        const exists = await User.findOne({ username: username.toLowerCase() });
-        if (exists) return res.status(400).json({ message: 'Username taken.' });
+        if (!username || !password) return res.status(400).json({ message: 'Username and password required.' });
+        
+        const exactMatchExists = await User.findOne({ username: username.toLowerCase() });
+        if (exactMatchExists) return res.status(400).json({ message: 'Username already taken.' });
 
         const encryptedPassword = await bcrypt.hash(password, 10);
-        await User.create({ username: username.toLowerCase(), password: encryptedPassword });
-        return res.status(201).json({ message: 'User created.' });
+        await User.create({
+            username: username.toLowerCase(),
+            password: encryptedPassword,
+            likedTracks: [],
+            watchHistory: [],
+            following: []
+        });
+        return res.status(201).json({ message: 'User created successfully.' });
     } catch (err) {
-        return res.status(500).json({ message: 'Registration failed.' });
+        return res.status(500).json({ message: 'Internal Server Error during registration.' });
     }
 });
 
 app.post('/api/auth/login', async (req, res) => {
     try {
         const { username, password } = req.body;
-        const user = await User.findOne({ username: username.toLowerCase() });
-        if (!user || !(await bcrypt.compare(password, user.password))) {
+        const targetUser = await User.findOne({ username: username.toLowerCase() });
+        if (!targetUser || !(await bcrypt.compare(password, targetUser.password))) {
             return res.status(401).json({ message: 'Invalid credentials.' });
         }
-        const token = jwt.sign({ id: user._id }, JWT_SECRET, { expiresIn: '7d' });
-        return res.status(200).json({ token });
+
+        const assignedTokenWrapper = jwt.sign({ id: targetUser._id }, JWT_SECRET, { expiresIn: '7d' });
+        return res.status(200).json({ token: assignedTokenWrapper });
     } catch (err) {
-        return res.status(500).json({ message: 'Login failed.' });
+        return res.status(500).json({ message: 'Login process crash.' });
     }
 });
 
@@ -98,37 +109,38 @@ app.get('/api/auth/me', parseBearerAuthenticationToken, (req, res) => {
 });
 
 /**
- * ENHANCED MUSIC TRACKS & CHANNELS SOURCE API
+ * DEEP CHANNELS & TRACK FEED API ENDPOINT
  */
 app.get('/api/tracks', async (req, res) => {
     try {
         const queryToken = req.query.q;
         const producerTarget = req.query.producer;
 
-        // Deep synchronization via query or producer targeting
         const activeSearchTerm = producerTarget || queryToken;
         if (activeSearchTerm && activeSearchTerm.trim().length > 0) {
             try {
-                // Search specifically for channels first to access deeper playlists
+                // Pinpoint the channel context infrastructure explicitly
                 const channelSearch = await ytSearch({ query: activeSearchTerm, category: 'channels' });
                 let searchTargetPool = [];
 
                 if (channelSearch && channelSearch.channels && channelSearch.channels.length > 0) {
                     const matchedChannel = channelSearch.channels[0];
-                    // Fetch comprehensive feed data from the channel context wrapper
+                    
+                    // Pull full feed parameters directly from channel ID attributes
                     const fullChannelFeed = await ytSearch({ channelId: matchedChannel.id });
                     if (fullChannelFeed && fullChannelFeed.videos) {
-                        searchTargetPool = fullChannelFeed.videos;
+                        // Gather up to 250 records from the creator's upload playlist history
+                        searchTargetPool = fullChannelFeed.videos.slice(0, 250); 
                     }
                 }
 
-                // Fall back to broad video search if channel lookups return blank catalogs
+                // Fall back to standard search query loops if channel arrays are empty
                 if (searchTargetPool.length === 0) {
                     const regularSearch = await ytSearch({ query: activeSearchTerm });
                     searchTargetPool = regularSearch.videos || [];
                 }
 
-                // Filter out short files/clips and update local database collection
+                // Exclude shorts/clips and bulk sync local cache matrix
                 const targetedVideos = searchTargetPool.filter(video => (video.seconds || 0) > 45);
                 for (const video of targetedVideos) {
                     const cleanTitle = video.title.replace(/[\(\[].*?[\)\]]/g, '').trim();
@@ -148,11 +160,11 @@ app.get('/api/tracks', async (req, res) => {
                     );
                 }
             } catch (searchErr) {
-                console.error("Deep search update bypassed:", searchErr);
+                console.error("Deep video scraper sync bypassed:", searchErr);
             }
         }
 
-        // Database Filtering Engine Matrix
+        // Build database index filter selectors
         let queryCondition = {};
         if (producerTarget) {
             queryCondition = { producer: producerTarget };
@@ -165,7 +177,8 @@ app.get('/api/tracks', async (req, res) => {
             };
         }
 
-        const feedCatalog = await Track.find(queryCondition).sort({ _id: -1 }).limit(100);
+        // Cap lifted to 500 to render huge playlists (like CG5's complete collection)
+        const feedCatalog = await Track.find(queryCondition).sort({ _id: -1 }).limit(500);
         return res.status(200).json(feedCatalog);
     } catch (err) {
         return res.status(500).json({ message: 'Failed reading platform tracks matrix.' });
@@ -173,7 +186,7 @@ app.get('/api/tracks', async (req, res) => {
 });
 
 /**
- * USER CONFIGURATIONS AND INTERACTION TRACKING
+ * USER INTERACTION ROUTING VECTORS
  */
 app.post('/api/users/history', parseBearerAuthenticationToken, async (req, res) => {
     try {
@@ -212,4 +225,6 @@ app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-app.listen(PORT, () => console.log(`Server executing at http://localhost:${PORT}`));
+app.listen(PORT, () => {
+    console.log(`Melodify Core Engine running on network hub: http://localhost:${PORT}`);
+});
