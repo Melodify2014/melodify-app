@@ -1,7 +1,7 @@
 {
   "name": "melodify-backend",
   "version": "1.0.0",
-  "description": "Melodify core engine",
+  "description": "Melodify core engine with YouTube channel syncing",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
@@ -11,6 +11,7 @@
     "cors": "^2.8.5",
     "express": "^4.19.2",
     "jsonwebtoken": "^9.0.2",
-    "mongoose": "^8.3.1"
+    "mongoose": "^8.3.1",
+    "yt-search": "^2.11.1"
   }
 }
