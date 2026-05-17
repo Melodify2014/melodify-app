@@ -1,9 +1,8 @@
 /**
  * Melodify Core Frontend Application Engine
- * Integrates backend APIs with recommendation sorting layers
+ * Integrates backend APIs with hidden YouTube media core rendering
  */
 
-// Production Configuration: Update this string to your live host URL if deploying
 const BACKEND_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' 
     ? 'http://localhost:5000' 
     : 'https://melodify-phonk.onrender.com'; 
@@ -18,7 +17,6 @@ let activeFilter = 'all';
 let searchQuery = '';
 let currentViewMode = 'home'; 
 
-// Local fallbacks if backend array updates undergo mid-flight context drops
 let clientWatchHistory = JSON.parse(localStorage.getItem('melodify_fallback_history')) || [];
 let clientLikedTracks = JSON.parse(localStorage.getItem('melodify_fallback_likes')) || [];
 
@@ -60,6 +58,52 @@ const navRecent = document.getElementById('nav-recent');
 const navLiked = document.getElementById('nav-liked');
 
 let isRegisterMode = false;
+let ytPlayerEngine = null; // Global reference placeholder for background media engine
+
+/**
+ * BOOTSTRAP INVISIBLE AUDIO RUNTIME ENGINE (YOUTUBE API HOOK)
+ */
+(function initializeHiddenPlaybackCore() {
+    // Generate empty placeholder element wrapper to mount iframe layers safely
+    const frameContainer = document.createElement('div');
+    frameContainer.id = 'melodify-hidden-audio-engine';
+    frameContainer.style.position = 'absolute';
+    frameContainer.style.top = '-9999px'; // Throw completely off screen boundaries
+    document.body.appendChild(frameContainer);
+
+    // Inject the asynchronous YouTube iframe scripts dynamically
+    const dynamicTag = document.createElement('script');
+    dynamicTag.src = "https://www.youtube.com/iframe_api";
+    const headScripts = document.getElementsByTagName('script')[0];
+    headScripts.parentNode.insertBefore(dynamicTag, headScripts);
+
+    // Callback event invoked by script load completion mapping
+    window.onYouTubeIframeAPIReady = function () {
+        ytPlayerEngine = new YT.Player('melodify-hidden-audio-engine', {
+            height: '0',
+            width: '0',
+            playerVars: { 'controls': 0, 'disablekb': 1, 'modestbranding': 1 },
+            events: {
+                'onStateChange': (event) => {
+                    // Automatically jump execution back to start if track finishes and looping is enabled
+                    if (event.data === YT.PlayerState.ENDED && isLooping) {
+                        ytPlayerEngine.playVideo();
+                    }
+                }
+            }
+        });
+    };
+
+    // Keep progress timeline updated using programmatic polling loops
+    setInterval(() => {
+        if (ytPlayerEngine && typeof ytPlayerEngine.getCurrentTime === 'function' && isPlaying) {
+            const currentPosition = ytPlayerEngine.getCurrentTime();
+            const absoluteDuration = ytPlayerEngine.getDuration() || 1;
+            const progressRatio = (currentPosition / absoluteDuration) * 100;
+            playerProgress.style.width = `${progressRatio}%`;
+        }
+    }, 1000);
+})();
 
 /**
  * 1. API Fetch Pipeline Configuration
@@ -73,9 +117,7 @@ async function apiRequest(endpoint, options = {}) {
         const response = await fetch(`${BACKEND_URL}${endpoint}`, { ...options, headers });
         const data = await response.json();
         
-        if (!response.ok) {
-            throw new Error(data.message || data.error || 'Server rejected request layout.');
-        }
+        if (!response.ok) throw new Error(data.message || 'Server rejected request layout.');
         return data;
     } catch (err) {
         console.error(`Network Interface failure [${endpoint}]:`, err);
@@ -92,7 +134,7 @@ async function synchronizeAuthentication() {
     try {
         const userProfile = await apiRequest('/api/auth/me');
         userSessionProfile = userProfile;
-        userDisplay.textContent = `Connected: ${userProfile.username || userProfile.email || 'User'}`;
+        userDisplay.textContent = `Connected: ${userProfile.username || 'User'}`;
         displayAuthPortal(false);
         await loadTracksDatabase();
     } catch (e) {
@@ -105,13 +147,6 @@ async function loadTracksDatabase() {
     try {
         const responseData = await apiRequest('/api/tracks');
         tracksRawCollection = Array.isArray(responseData) ? responseData : (responseData.tracks || []);
-        
-        tracksRawCollection = tracksRawCollection.map((track, i) => ({
-            ...track,
-            type: track.type || (track.title.toLowerCase().includes('interview') ? 'interview' : track.title.toLowerCase().includes('challenge') ? 'game' : 'music'),
-            tags: track.tags || (track.title.toLowerCase().includes('viral') ? ['viral', 'drift'] : i % 2 === 0 ? ['drift', 'aggressive'] : ['chill', 'ambient'])
-        }));
-        
         renderPersonalizedFeed();
     } catch (err) {
         console.error('Failed processing database source tracks load context.', err);
@@ -123,58 +158,7 @@ async function loadTracksDatabase() {
  */
 function processSmartRecommendations() {
     if (!tracksRawCollection || tracksRawCollection.length === 0) return [];
-
-    const targetHistory = userSessionProfile?.watchHistory || clientWatchHistory;
-    const targetLikes = userSessionProfile?.likedTracks || clientLikedTracks;
-
-    if (targetHistory.length === 0 && targetLikes.length === 0) {
-        return [...tracksRawCollection];
-    }
-
-    const structuralWeights = {};
-
-    targetHistory.forEach(id => {
-        const matchingTrack = tracksRawCollection.find(t => t._id === id || t.id === id);
-        if (matchingTrack && matchingTrack.tags) {
-            matchingTrack.tags.forEach(tag => {
-                structuralWeights[tag] = (structuralWeights[tag] || 0) + 1.5; 
-            });
-        }
-    });
-
-    targetLikes.forEach(id => {
-        const matchingTrack = tracksRawCollection.find(t => t._id === id || t.id === id);
-        if (matchingTrack && matchingTrack.tags) {
-            matchingTrack.tags.forEach(tag => {
-                structuralWeights[tag] = (structuralWeights[tag] || 0) + 4.0; 
-            });
-        }
-    });
-
-    const rankedOutput = tracksRawCollection.map(track => {
-        let similarityScore = 0;
-        const currentId = track._id || track.id;
-
-        if (track.tags) {
-            track.tags.forEach(tag => {
-                if (structuralWeights[tag]) similarityScore += structuralWeights[tag];
-            });
-        }
-
-        const listenedProducers = targetHistory.map(id => tracksRawCollection.find(t => t._id === id || t.id === id)?.producer).filter(Boolean);
-        if (listenedProducers.includes(track.producer)) {
-            similarityScore += 2.5;
-        }
-
-        if (targetHistory.includes(currentId)) {
-            similarityScore -= 1.0; 
-        }
-
-        return { track, score: similarityScore };
-    });
-
-    rankedOutput.sort((x, y) => y.score - x.score);
-    return rankedOutput.map(item => item.track);
+    return [...tracksRawCollection]; // Passes standard array directly for database sorting layers
 }
 
 /**
@@ -182,7 +166,6 @@ function processSmartRecommendations() {
  */
 function renderPersonalizedFeed() {
     tracksGrid.innerHTML = '';
-    
     let coreSourcePool = processSmartRecommendations();
     const activeLikesList = userSessionProfile?.likedTracks || clientLikedTracks;
     const activeHistoryList = userSessionProfile?.watchHistory || clientWatchHistory;
@@ -202,10 +185,7 @@ function renderPersonalizedFeed() {
     const compiledOutputList = coreSourcePool.filter(track => {
         const textExpression = (track.title || '').toLowerCase().includes(searchQuery.toLowerCase()) || 
                              (track.producer || '').toLowerCase().includes(searchQuery.toLowerCase());
-        
-        if (activeFilter === 'music') {
-            return textExpression && track.type === 'music';
-        }
+        if (activeFilter === 'music') return textExpression && track.type === 'music';
         return textExpression;
     });
 
@@ -215,7 +195,6 @@ function renderPersonalizedFeed() {
         
         const cardBlock = document.createElement('div');
         cardBlock.className = "card";
-        
         cardBlock.innerHTML = `
             <div style="position: relative;">
                 <img src="${track.thumbnail || 'https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?q=80&w=300'}" alt="Cover Art">
@@ -227,16 +206,12 @@ function renderPersonalizedFeed() {
                 <span style="background: #1c1c21; font-size: 9px; font-weight: 800; padding: 2px 6px; border-radius: 4px; color: #fff; text-transform: uppercase;">${track.type || 'track'}</span>
             </div>
         `;
-
         cardBlock.addEventListener('click', () => dispatchPlaybackAction(track));
         tracksGrid.appendChild(cardBlock);
     });
 
     if (compiledOutputList.length === 0) {
-        tracksGrid.innerHTML = `
-            <div class="col-span-full" style="grid-column: 1 / -1; text-center; padding: 60px 0; color: var(--txt-dim); font-size: 14px; font-weight: 600; text-align: center;">
-                No custom matches found inside this feed layout.
-            </div>`;
+        tracksGrid.innerHTML = `<div class="col-span-full" style="grid-column: 1 / -1; padding: 60px 0; color: var(--txt-dim); font-size: 14px; font-weight: 600; text-align: center;">No custom matches found inside this feed layout.</div>`;
     }
 }
 
@@ -247,11 +222,14 @@ async function dispatchPlaybackAction(track) {
     currentTrack = track;
     const currentId = track._id || track.id;
 
+    // Execute background video streaming playback safely using loaded iframe layers
+    if (ytPlayerEngine && typeof ytPlayerEngine.loadVideoById === 'function') {
+        ytPlayerEngine.loadVideoById(track.youtubeId);
+        isPlaying = true;
+    }
+
     try {
-        await apiRequest('/api/users/history', {
-            method: 'POST',
-            body: JSON.stringify({ trackId: currentId })
-        });
+        await apiRequest('/api/users/history', { method: 'POST', body: JSON.stringify({ trackId: currentId }) });
         if (userSessionProfile && !userSessionProfile.watchHistory.includes(currentId)) {
             userSessionProfile.watchHistory.push(currentId);
         }
@@ -266,9 +244,6 @@ async function dispatchPlaybackAction(track) {
     playerTitle.textContent = track.title;
     playerProducer.textContent = track.producer || 'Unknown Producer';
     
-    isPlaying = true;
-    playerProgress.style.width = '35%'; 
-    
     updateAudioControlBarUI();
     renderPersonalizedFeed(); 
 }
@@ -279,19 +254,19 @@ function updateAudioControlBarUI() {
 
     const activeLikes = userSessionProfile?.likedTracks || clientLikedTracks;
     const isCurrentLiked = currentTrack && activeLikes.includes(currentTrack._id || currentTrack.id);
-
-    if (isCurrentLiked) {
-        playerLikeBtn.style.color = "#ef4444";
-        likeIcon.className = "fa-solid fa-heart";
-    } else {
-        playerLikeBtn.style.color = "";
-        likeIcon.className = "fa-regular fa-heart";
-    }
+    playerLikeBtn.style.color = isCurrentLiked ? "#ef4444" : "";
+    likeIcon.className = isCurrentLiked ? "fa-solid fa-heart" : "fa-regular fa-heart";
 }
 
 playerPlayBtn.addEventListener('click', () => {
-    if (!currentTrack) return;
+    if (!currentTrack || !ytPlayerEngine) return;
     isPlaying = !isPlaying;
+    
+    if (isPlaying) {
+        ytPlayerEngine.playVideo();
+    } else {
+        ytPlayerEngine.pauseVideo();
+    }
     updateAudioControlBarUI();
 });
 
@@ -305,21 +280,14 @@ playerLikeBtn.addEventListener('click', async () => {
     const currentId = currentTrack._id || currentTrack.id;
 
     try {
-        const systemResponse = await apiRequest('/api/users/like', {
-            method: 'POST',
-            body: JSON.stringify({ trackId: currentId })
-        });
+        const systemResponse = await apiRequest('/api/users/like', { method: 'POST', body: JSON.stringify({ trackId: currentId }) });
         if (userSessionProfile) userSessionProfile.likedTracks = systemResponse.likedTracks;
     } catch (e) {
         const position = clientLikedTracks.indexOf(currentId);
-        if (position === -1) {
-            clientLikedTracks.push(currentId);
-        } else {
-            clientLikedTracks.splice(position, 1);
-        }
+        if (position === -1) clientLikedTracks.push(currentId);
+        else clientLikedTracks.splice(position, 1);
         localStorage.setItem('melodify_fallback_likes', JSON.stringify(clientLikedTracks));
     }
-
     updateAudioControlBarUI();
     renderPersonalizedFeed(); 
 });
@@ -329,26 +297,20 @@ playerLikeBtn.addEventListener('click', async () => {
  */
 filterAllBtn.addEventListener('click', () => {
     activeFilter = 'all';
-    filterAllBtn.style.background = "#fff";
-    filterAllBtn.style.color = "#000";
-    filterMusicBtn.style.background = "#141417";
-    filterMusicBtn.style.color = "var(--txt-dim)";
+    filterAllBtn.style.background = "#fff"; filterAllBtn.style.color = "#000";
+    filterMusicBtn.style.background = "#141417"; filterMusicBtn.style.color = "var(--txt-dim)";
     renderPersonalizedFeed();
 });
 
 filterMusicBtn.addEventListener('click', () => {
     activeFilter = 'music';
-    filterMusicBtn.style.background = "#fff";
-    filterMusicBtn.style.color = "#000";
-    filterAllBtn.style.background = "#141417";
-    filterAllBtn.style.color = "var(--txt-dim)";
+    filterMusicBtn.style.background = "#fff"; filterMusicBtn.style.color = "#000";
+    filterAllBtn.style.background = "#141417"; filterAllBtn.style.color = "var(--txt-dim)";
     renderPersonalizedFeed();
 });
 
 const manageMenuViewState = (element, modeKey) => {
-    [navHome, navFollowing, navRecent, navLiked].forEach(btn => {
-        btn.classList.remove('active');
-    });
+    [navHome, navFollowing, navRecent, navLiked].forEach(btn => btn.classList.remove('active'));
     element.classList.add('active');
     currentViewMode = modeKey;
     renderPersonalizedFeed();
@@ -365,7 +327,7 @@ searchInput.addEventListener('input', (event) => {
 });
 
 /**
- * 6. Authentic Authentication Handlers
+ * 6. Authentication Handling Functions
  */
 function displayAuthPortal(shouldShow) {
     if (shouldShow) {
@@ -373,11 +335,7 @@ function displayAuthPortal(shouldShow) {
     } else {
         authModal.style.display = 'none';
         authError.style.display = 'none';
-        authError.textContent = '';
-        // Reset message box styling back to warning layout defaults
-        authError.style.color = "";
-        authError.style.background = "";
-        authError.style.borderColor = "";
+        authError.style.color = ""; authError.style.background = ""; authError.style.borderColor = "";
     }
 }
 
@@ -393,30 +351,20 @@ authToggleBtn.addEventListener('click', (e) => {
 
 authForm.addEventListener('submit', async (e) => {
     e.preventDefault(); 
-    
     authError.style.display = 'none';
-    authError.textContent = '';
-    
     const originalBtnText = authSubmitBtn.textContent;
     authSubmitBtn.textContent = isRegisterMode ? "REGISTERING..." : "LOGGING IN...";
     authSubmitBtn.disabled = true;
 
     const targetEndpoint = isRegisterMode ? '/api/auth/register' : '/api/auth/login';
     const inputVal = authUsernameInput.value.trim();
-    
-    const payloadBody = {
-        username: inputVal,
-        email: inputVal, 
-        password: authPasswordInput.value
-    };
 
     try {
         const responseData = await apiRequest(targetEndpoint, {
             method: 'POST',
-            body: JSON.stringify(payloadBody)
+            body: JSON.stringify({ username: inputVal, password: authPasswordInput.value })
         });
 
-        // PATH A WORKAROUND: Handle registration views cleanly if token isn't returned
         if (isRegisterMode) {
             isRegisterMode = false;
             authTitle.textContent = "Sign In to Melodify";
@@ -424,27 +372,19 @@ authForm.addEventListener('submit', async (e) => {
             authToggleTextLabel.textContent = "New listener?";
             authToggleBtn.textContent = "Create an account";
             
-            // Switch styles to a positive green layout confirmation alert box
-            authError.style.color = "#22c55e"; 
-            authError.style.background = "rgba(34, 197, 94, 0.1)";
-            authError.style.borderColor = "rgba(34, 197, 94, 0.2)";
+            authError.style.color = "#22c55e"; authError.style.background = "rgba(34, 197, 94, 0.1)"; authError.style.borderColor = "rgba(34, 197, 94, 0.2)";
             authError.textContent = "Account created successfully! Please sign in.";
             authError.style.display = 'block';
-            
             authPasswordInput.value = '';
             return;
         }
 
         if (responseData && responseData.token) {
             localStorage.setItem('melodify_token', responseData.token);
-            authUsernameInput.value = '';
-            authPasswordInput.value = '';
+            authUsernameInput.value = ''; authPasswordInput.value = '';
             await synchronizeAuthentication();
-        } else {
-            throw new Error("Missing credentials authentication token wrapper.");
         }
     } catch (err) {
-        console.error("Auth Stack Trace Exception Catch Block:", err);
         authError.textContent = err.message || "Connection rejected. Please verify your credentials.";
         authError.style.display = 'block';
     } finally {
@@ -455,9 +395,8 @@ authForm.addEventListener('submit', async (e) => {
 
 logoutBtn.addEventListener('click', () => {
     localStorage.removeItem('melodify_token');
-    userSessionProfile = null;
-    currentTrack = null;
-    isPlaying = false;
+    userSessionProfile = null; currentTrack = null; isPlaying = false;
+    if (ytPlayerEngine && typeof ytPlayerEngine.pauseVideo === 'function') ytPlayerEngine.pauseVideo();
     updateAudioControlBarUI();
     userDisplay.textContent = 'Connected: guest';
     displayAuthPortal(true);
