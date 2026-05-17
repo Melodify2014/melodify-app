@@ -1,6 +1,6 @@
 /**
  * Melodify Backend Gateway Server
- * Real-time YouTube Channel Searching, Shorts Filtering, and User Follow Pipelines
+ * Added explicit Producer Filtering Pipelines and Channel-Specific Synchronizers
  */
 const express = require('express');
 const mongoose = require('mongoose');
@@ -27,7 +27,7 @@ const UserSchema = new mongoose.Schema({
     password: { type: String, required: true },
     likedTracks: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Track' }],
     watchHistory: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Track' }],
-    following: { type: [String], default: [] } // Stores exact producer/channel strings
+    following: { type: [String], default: [] }
 });
 
 const TrackSchema = new mongoose.Schema({
@@ -50,18 +50,15 @@ mongoose.connect(MONGO_URI)
     .catch(err => console.error('Database Connection Error Context:', err));
 
 /**
- * AUTHENTICATION ROUTE ENDPOINTS
+ * AUTHENTICATION MIDDLEWARE & ROUTING INTERFACES
  */
 app.post('/api/auth/register', async (req, res) => {
     try {
         const { username, password } = req.body;
-        if (!username || !password) {
-            return res.status(400).json({ message: 'Username and password elements required.' });
-        }
+        if (!username || !password) return res.status(400).json({ message: 'Username and password required.' });
+        
         const exactMatchExists = await User.findOne({ username: username.toLowerCase() });
-        if (exactMatchExists) {
-            return res.status(400).json({ message: 'Username already taken.' });
-        }
+        if (exactMatchExists) return res.status(400).json({ message: 'Username already taken.' });
 
         const encryptedPassword = await bcrypt.hash(password, 10);
         const newUser = await User.create({
@@ -89,7 +86,7 @@ app.post('/api/auth/login', async (req, res) => {
         const assignedTokenWrapper = jwt.sign({ id: targetUser._id }, JWT_SECRET, { expiresIn: '7d' });
         return res.status(200).json({ token: assignedTokenWrapper });
     } catch (err) {
-        return res.status(500).json({ message: 'Login controller process crash.' });
+        return res.status(500).json({ message: 'Login process crash.' });
     }
 });
 
@@ -113,43 +110,46 @@ app.get('/api/auth/me', parseBearerAuthenticationToken, (req, res) => {
 });
 
 /**
- * MUSIC TRACK & SEARCH INTERFACES (LIVE YOUTUBE CORES)
+ * MUSIC TRACK & DYNAMIC PRODUCER SEARCH INTERFACES
  */
 app.get('/api/tracks', async (req, res) => {
     try {
         const queryToken = req.query.q;
+        const producerTarget = req.query.producer; // Catch strict channel targets
 
-        // If a search query is passed, dynamically query YouTube live and sync matching long-form content
-        if (queryToken && queryToken.trim().length > 0) {
+        // Run search synchronization if a query or strict channel target is processed
+        const activeSearchTerm = producerTarget || queryToken;
+        if (activeSearchTerm && activeSearchTerm.trim().length > 0) {
             try {
-                const searchResults = await ytSearch({ query: queryToken });
+                const searchResults = await ytSearch({ query: activeSearchTerm });
                 if (searchResults && searchResults.videos) {
-                    // Filter out Shorts (must be greater than 60 seconds)
-                    const filteredCollection = searchResults.videos.filter(video => video.seconds > 60).slice(0, 12);
+                    const filteredCollection = searchResults.videos.filter(video => video.seconds > 60).slice(0, 16);
                     
                     for (const video of filteredCollection) {
                         await Track.findOneAndUpdate(
                             { youtubeId: video.videoId },
                             {
                                 title: video.title.replace(/[\(\[].*?[\)\]]/g, '').trim(),
-                                producer: video.author.name || queryToken,
+                                producer: video.author.name || activeSearchTerm,
                                 thumbnail: video.image || video.thumbnail,
                                 youtubeId: video.videoId,
                                 type: 'music',
-                                tags: ['search-sync', 'phonk']
+                                tags: ['search-sync']
                             },
-                            { upsert: true, new: true }
+                            { upsert: true }
                         );
                     }
                 }
             } catch (searchErr) {
-                console.error("Live YouTube sync warning:", searchErr);
+                console.error("Live sync skipped:", searchErr);
             }
         }
 
-        // Return matched database items back to frontend client
+        // Build database query matrices
         let queryCondition = {};
-        if (queryToken) {
+        if (producerTarget) {
+            queryCondition = { producer: producerTarget };
+        } else if (queryToken) {
             queryCondition = {
                 $or: [
                     { title: { $regex: queryToken, $options: 'i' } },
@@ -158,7 +158,7 @@ app.get('/api/tracks', async (req, res) => {
             };
         }
 
-        const feedCatalog = await Track.find(queryCondition).limit(40);
+        const feedCatalog = await Track.find(queryCondition).limit(50);
         return res.status(200).json(feedCatalog);
     } catch (err) {
         return res.status(500).json({ message: 'Failed reading platform tracks matrix.' });
@@ -166,7 +166,7 @@ app.get('/api/tracks', async (req, res) => {
 });
 
 /**
- * USER RELATIONSHIP ACTIONS (HISTORY, LIKES, CHANNELS FOLLOWING)
+ * USER RELATIONSHIP ROUTING VECTORS
  */
 app.post('/api/users/history', parseBearerAuthenticationToken, async (req, res) => {
     try {
@@ -197,7 +197,6 @@ app.post('/api/users/like', parseBearerAuthenticationToken, async (req, res) => 
     }
 });
 
-// Follow / Unfollow Toggle Endpoint Layer
 app.post('/api/users/follow', parseBearerAuthenticationToken, async (req, res) => {
     try {
         const { producerName } = req.body;
@@ -205,15 +204,15 @@ app.post('/api/users/follow', parseBearerAuthenticationToken, async (req, res) =
 
         const searchPosition = req.verifiedUser.following.indexOf(producerName);
         if (searchPosition === -1) {
-            req.verifiedUser.following.push(producerName); // Follow
+            req.verifiedUser.following.push(producerName);
         } else {
-            req.verifiedUser.following.splice(searchPosition, 1); // Unfollow
+            req.verifiedUser.following.splice(searchPosition, 1);
         }
 
         await req.verifiedUser.save();
         return res.status(200).json({ following: req.verifiedUser.following });
     } catch (err) {
-        return res.status(500).json({ message: 'Failed processing follow request vectors.' });
+        return res.status(500).json({ message: 'Failed processing follow vectors.' });
     }
 });
 
@@ -221,9 +220,6 @@ app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-/**
- * BASELINE SEED DATA ON REBOOT
- */
 async function syncChannelsExcludeShorts() {
     const existingCount = await Track.countDocuments();
     if (existingCount > 5) return; 
@@ -250,7 +246,7 @@ async function syncChannelsExcludeShorts() {
                 );
             }
         } catch (e) {
-            console.error("Seeder trace skipped execution steps.");
+            console.error("Seeder skipped.");
         }
     }
 }
