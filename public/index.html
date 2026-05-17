@@ -4,107 +4,88 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Melodify - Phonk Streaming Platform</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
-
-    <div id="auth-modal" class="auth-modal">
-        <div class="auth-box">
-            <h2 id="auth-title">Sign In to Melodify</h2>
-            
-            <div id="auth-error" class="auth-error-msg"></div>
-            
-            <form id="auth-form">
-                <input type="text" id="auth-username" placeholder="username or email" required>
-                <input type="password" id="auth-password" placeholder="password" required>
-                <button type="submit" id="auth-submit-btn" class="auth-main-btn">Login</button>
-            </form>
-            <p class="auth-toggle-text">
-                <span id="auth-toggle-text-label">New listener?</span> 
-                <a href="#" id="auth-toggle-btn">Create an account</a>
-            </p>
-        </div>
-    </div>
-
-    <div class="layout">
+    <div class="app-container">
         <aside class="sidebar">
-            <h1 class="logo">MELODIFY</h1>
-            <nav class="nav-menu">
-                <button id="nav-home" class="nav-btn active">
-                    <i class="fa-solid fa-house style-icon"></i> home
-                </button>
-                <button id="nav-following" class="nav-btn">
-                    <i class="fa-solid fa-users style-icon"></i> following
-                </button>
-                <button id="nav-recent" class="nav-btn">
-                    <i class="fa-solid fa-clock style-icon"></i> recent
-                </button>
-                <button id="nav-liked" class="nav-btn">
-                    <i class="fa-solid fa-heart style-icon"></i> liked
-                </button>
-            </nav>
-            <div style="margin-top: auto; padding-top: 20px; border-top: 1px solid #141417;">
-                <p id="user-display" style="font-size: 11px; color: var(--txt-dim); font-weight: 700; margin-bottom: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Connected: guest</p>
-                <button id="logout-btn" style="background: none; border: none; color: #ef4444; font-size: 13px; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 8px;">
-                    <span style="width: 6px; height: 6px; background: #ef4444; border-radius: 50%;"></span> disconnect
-                </button>
+            <div class="logo">
+                <i class="fa-solid fa-bolt"></i> <span>MELODIFY</span>
             </div>
+            <nav class="menu">
+                <button id="nav-home" class="menu-item active"><i class="fa-solid fa-house"></i> Home</button>
+                <button id="nav-following" class="menu-item"><i class="fa-solid fa-users"></i> Following</button>
+                <button id="nav-recent" class="menu-item"><i class="fa-solid fa-clock"></i> Recent</button>
+                <button id="nav-liked" class="menu-item"><i class="fa-solid fa-heart"></i> Liked</button>
+            </nav>
         </aside>
 
-        <main class="content">
+        <main class="main-content">
             <header class="top-bar">
                 <div class="search-box">
-                    <input type="text" id="search-input" placeholder="Search track, producer, aesthetic...">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                    <input type="text" id="search-input" placeholder="Live search YouTube channels & tracks...">
                 </div>
-                <button class="drift-toggle-btn">
-                    ⚡ DRIFT MODE
-                </button>
+                <div class="user-profile-wrapper" style="display: flex; align-items: center; gap: 16px;">
+                    <span id="user-display">Connecting...</span>
+                    <button id="logout-btn" style="background: none; border: 1px solid var(--border); color: var(--txt-dim); padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600;">Logout</button>
+                </div>
             </header>
 
-            <div style="display: flex; gap: 10px; margin-bottom: 30px;">
-                <button id="filter-all" style="background: #fff; color: #000; border: none; padding: 6px 16px; border-radius: 20px; font-size: 12px; font-weight: 700; cursor: pointer;">All Feeds</button>
-                <button id="filter-music" style="background: #141417; color: var(--txt-dim); border: 1px solid #222226; padding: 6px 16px; border-radius: 20px; font-size: 12px; font-weight: 700; cursor: pointer;">🎵 Music Only</button>
-            </div>
-
-            <section>
-                <h2 id="feed-heading" class="section-title">Phonk Feed</h2>
-                <div id="tracks-grid" class="media-grid">
+            <section class="content-body">
+                <div class="feed-header">
+                    <h1 id="feed-heading">Phonk Feed</h1>
+                    <div class="filter-tabs">
+                        <button id="filter-all" class="tab active">All</button>
+                        <button id="filter-music" class="tab">Music</button>
+                    </div>
+                </div>
+                <div id="tracks-grid" class="tracks-grid">
                     </div>
             </section>
         </main>
+
+        <footer class="player-bar">
+            <div class="now-playing">
+                <img id="player-thumb" src="https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?q=80&w=100" alt="Current Track">
+                <div class="track-info">
+                    <h4 id="player-title">Select a track</h4>
+                    <p id="player-producer">Unknown Producer</p>
+                </div>
+            </div>
+
+            <div class="player-controls">
+                <div class="buttons">
+                    <button id="player-loop-btn" class="ctrl-btn"><i class="fa-solid fa-repeat"></i></button>
+                    <button id="player-play-btn" class="ctrl-btn play-main"><i id="play-icon" class="fa-solid fa-play"></i></button>
+                    <button id="player-like-btn" class="ctrl-btn"><i id="like-icon" class="fa-regular fa-heart"></i></button>
+                </div>
+                <div class="timeline">
+                    <div class="progress-bar">
+                        <div id="player-progress" class="progress" style="width: 0%;"></div>
+                    </div>
+                </div>
+            </div>
+        </footer>
     </div>
 
-    <div class="player-bar">
-        <div class="p-left" style="display: flex; align-items: center; gap: 14px;">
-            <img id="player-thumb" src="https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?q=80&w=100" alt="Cover Art" style="width: 44px; height: 44px; border-radius: 6px; object-fit: cover;">
-            <div style="overflow: hidden;">
-                <h4 id="player-title" class="p-title-text">No track selected</h4>
-                <p id="player-producer" class="p-artist-text">Select a track from your stream</p>
-            </div>
-        </div>
-
-        <div class="p-center">
-            <div class="player-controls">
-                <button id="player-loop-btn" class="ctrl-btn"><i class="fa-solid fa-arrows-rotate"></i></button>
-                <button id="player-prev-btn" class="ctrl-btn"><i class="fa-solid fa-backward-step"></i></button>
-                <button id="player-play-btn" class="ctrl-btn main-play"><i id="play-icon" class="fa-solid fa-play"></i></button>
-                <button id="player-next-btn" class="ctrl-btn"><i class="fa-solid fa-forward-step"></i></button>
-                <button id="player-like-btn" class="ctrl-btn"><i id="like-icon" class="fa-regular fa-heart"></i></button>
-            </div>
-
-            <div style="width: 100%; display: flex; align-items: center; gap: 12px; font-size: 10px; color: var(--txt-dim); font-weight: 700;">
-                <span id="track-time-current">0:00</span>
-                <div class="progress-container">
-                    <div id="player-progress" class="progress-fill"></div>
+    <div id="auth-modal" class="auth-overlay" style="display: none;">
+        <div class="auth-card">
+            <h2 id="auth-title">Sign In to Melodify</h2>
+            <div id="auth-error" class="auth-error-banner" style="display: none;"></div>
+            <form id="auth-form">
+                <div class="form-group">
+                    <label>Username</label>
+                    <input type="text" id="auth-username" required autocomplete="off">
                 </div>
-                <span id="track-time-total">3:15</span>
-            </div>
-        </div>
-
-        <div class="p-right">
-            <i class="fa-solid fa-volume-high" style="color: var(--txt-dim); font-size: 12px;"></i>
-            <input type="range" min="0" max="100" value="80" class="vol-slider">
+                <div class="form-group">
+                    <label>Password</label>
+                    <input type="password" id="auth-password" required>
+                </div>
+                <button type="submit" id="auth-submit-btn" class="auth-submit">Login</button>
+            </form>
+            <p class="auth-toggle-text"><span id="auth-toggle-text-label">New listener?</span> <a href="#" id="auth-toggle-btn">Create an account</a></p>
         </div>
     </div>
 
