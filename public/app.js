@@ -1,6 +1,6 @@
 /**
  * Melodify Core Frontend Application Engine
- * Integrates backend APIs with hidden YouTube media core rendering
+ * Integrates live backend APIs with dynamic YouTube Iframe streams
  */
 
 const BACKEND_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' 
@@ -19,6 +19,7 @@ let currentViewMode = 'home';
 
 let clientWatchHistory = JSON.parse(localStorage.getItem('melodify_fallback_history')) || [];
 let clientLikedTracks = JSON.parse(localStorage.getItem('melodify_fallback_likes')) || [];
+let clientFollowingList = JSON.parse(localStorage.getItem('melodify_fallback_following')) || [];
 
 // DOM Element Registry Cache
 const tracksGrid = document.getElementById('tracks-grid');
@@ -58,26 +59,24 @@ const navRecent = document.getElementById('nav-recent');
 const navLiked = document.getElementById('nav-liked');
 
 let isRegisterMode = false;
-let ytPlayerEngine = null; // Global reference placeholder for background media engine
+let ytPlayerEngine = null; 
+let searchDebounceTimeout = null; 
 
 /**
  * BOOTSTRAP INVISIBLE AUDIO RUNTIME ENGINE (YOUTUBE API HOOK)
  */
 (function initializeHiddenPlaybackCore() {
-    // Generate empty placeholder element wrapper to mount iframe layers safely
     const frameContainer = document.createElement('div');
     frameContainer.id = 'melodify-hidden-audio-engine';
     frameContainer.style.position = 'absolute';
-    frameContainer.style.top = '-9999px'; // Throw completely off screen boundaries
+    frameContainer.style.top = '-9999px'; 
     document.body.appendChild(frameContainer);
 
-    // Inject the asynchronous YouTube iframe scripts dynamically
     const dynamicTag = document.createElement('script');
     dynamicTag.src = "https://www.youtube.com/iframe_api";
     const headScripts = document.getElementsByTagName('script')[0];
     headScripts.parentNode.insertBefore(dynamicTag, headScripts);
 
-    // Callback event invoked by script load completion mapping
     window.onYouTubeIframeAPIReady = function () {
         ytPlayerEngine = new YT.Player('melodify-hidden-audio-engine', {
             height: '0',
@@ -85,7 +84,6 @@ let ytPlayerEngine = null; // Global reference placeholder for background media 
             playerVars: { 'controls': 0, 'disablekb': 1, 'modestbranding': 1 },
             events: {
                 'onStateChange': (event) => {
-                    // Automatically jump execution back to start if track finishes and looping is enabled
                     if (event.data === YT.PlayerState.ENDED && isLooping) {
                         ytPlayerEngine.playVideo();
                     }
@@ -94,7 +92,6 @@ let ytPlayerEngine = null; // Global reference placeholder for background media 
         });
     };
 
-    // Keep progress timeline updated using programmatic polling loops
     setInterval(() => {
         if (ytPlayerEngine && typeof ytPlayerEngine.getCurrentTime === 'function' && isPlaying) {
             const currentPosition = ytPlayerEngine.getCurrentTime();
@@ -116,11 +113,10 @@ async function apiRequest(endpoint, options = {}) {
 
         const response = await fetch(`${BACKEND_URL}${endpoint}`, { ...options, headers });
         const data = await response.json();
-        
-        if (!response.ok) throw new Error(data.message || 'Server rejected request layout.');
+        if (!response.ok) throw new Error(data.message || 'Server connection layout failed.');
         return data;
     } catch (err) {
-        console.error(`Network Interface failure [${endpoint}]:`, err);
+        console.error(`Network Failure [${endpoint}]:`, err);
         throw err;
     }
 }
@@ -143,9 +139,14 @@ async function synchronizeAuthentication() {
     }
 }
 
-async function loadTracksDatabase() {
+async function loadTracksDatabase(searchQueryParameter = '') {
     try {
-        const responseData = await apiRequest('/api/tracks');
+        // Direct query tokens down standard parameter blocks to match backend searching
+        const uriTarget = searchQueryParameter 
+            ? `/api/tracks?q=${encodeURIComponent(searchQueryParameter)}` 
+            : '/api/tracks';
+            
+        const responseData = await apiRequest(uriTarget);
         tracksRawCollection = Array.isArray(responseData) ? responseData : (responseData.tracks || []);
         renderPersonalizedFeed();
     } catch (err) {
@@ -154,21 +155,15 @@ async function loadTracksDatabase() {
 }
 
 /**
- * 2. Adaptive Weight Recommendation Engine
- */
-function processSmartRecommendations() {
-    if (!tracksRawCollection || tracksRawCollection.length === 0) return [];
-    return [...tracksRawCollection]; // Passes standard array directly for database sorting layers
-}
-
-/**
  * 3. Layout Rendering Array Core Pipeline
  */
 function renderPersonalizedFeed() {
     tracksGrid.innerHTML = '';
-    let coreSourcePool = processSmartRecommendations();
+    let coreSourcePool = [...tracksRawCollection];
+    
     const activeLikesList = userSessionProfile?.likedTracks || clientLikedTracks;
     const activeHistoryList = userSessionProfile?.watchHistory || clientWatchHistory;
+    const activeFollowingList = userSessionProfile?.following || clientFollowingList;
 
     if (currentViewMode === 'liked') {
         coreSourcePool = coreSourcePool.filter(t => activeLikesList.includes(t._id || t.id));
@@ -177,21 +172,22 @@ function renderPersonalizedFeed() {
         coreSourcePool = coreSourcePool.filter(t => activeHistoryList.includes(t._id || t.id));
         feedHeading.textContent = "Recently Played Tracks";
     } else if (currentViewMode === 'following') {
+        // Filter pool to exclusively display videos from followed channels
+        coreSourcePool = coreSourcePool.filter(t => activeFollowingList.includes(t.producer));
         feedHeading.textContent = "Following Producers Feed";
     } else {
         feedHeading.textContent = activeFilter === 'music' ? "Music Only Feed" : "Phonk Feed";
     }
 
     const compiledOutputList = coreSourcePool.filter(track => {
-        const textExpression = (track.title || '').toLowerCase().includes(searchQuery.toLowerCase()) || 
-                             (track.producer || '').toLowerCase().includes(searchQuery.toLowerCase());
-        if (activeFilter === 'music') return textExpression && track.type === 'music';
-        return textExpression;
+        if (activeFilter === 'music') return track.type === 'music';
+        return true;
     });
 
     compiledOutputList.forEach(track => {
         const trackIdentifier = track._id || track.id;
         const trackIsLiked = activeLikesList.includes(trackIdentifier);
+        const isFollowingThisProducer = activeFollowingList.includes(track.producer);
         
         const cardBlock = document.createElement('div');
         cardBlock.className = "card";
@@ -202,16 +198,39 @@ function renderPersonalizedFeed() {
             </div>
             <h3 class="c-title" title="${track.title}">${track.title}</h3>
             <div style="display: flex; justify-content: space-between; align-items: center; font-size: 11px; color: var(--txt-dim); margin-top: 4px;">
-                <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-w: 110px;">${track.producer || 'Unknown'}</span>
-                <span style="background: #1c1c21; font-size: 9px; font-weight: 800; padding: 2px 6px; border-radius: 4px; color: #fff; text-transform: uppercase;">${track.type || 'track'}</span>
+                <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100px;">${track.producer || 'Unknown'}</span>
+                <button class="follow-badge-btn" style="background: ${isFollowingThisProducer ? '#22c55e' : '#1c1c21'}; font-size: 9px; font-weight: 800; padding: 2px 6px; border: none; border-radius: 4px; color: #fff; cursor: pointer; text-transform: uppercase;">
+                    ${isFollowingThisProducer ? 'Following' : 'Follow'}
+                </button>
             </div>
         `;
+
+        // Intercept follow button click event propagation paths
+        const followBadge = cardBlock.querySelector('.follow-badge-btn');
+        followBadge.addEventListener('click', async (event) => {
+            event.stopPropagation(); 
+            try {
+                const response = await apiRequest('/api/users/follow', {
+                    method: 'POST',
+                    body: JSON.stringify({ producerName: track.producer })
+                });
+                if (userSessionProfile) userSessionProfile.following = response.following;
+                renderPersonalizedFeed();
+            } catch (err) {
+                const searchIdx = clientFollowingList.indexOf(track.producer);
+                if (searchIdx === -1) clientFollowingList.push(track.producer);
+                else clientFollowingList.splice(searchIdx, 1);
+                localStorage.setItem('melodify_fallback_following', JSON.stringify(clientFollowingList));
+                renderPersonalizedFeed();
+            }
+        });
+
         cardBlock.addEventListener('click', () => dispatchPlaybackAction(track));
         tracksGrid.appendChild(cardBlock);
     });
 
     if (compiledOutputList.length === 0) {
-        tracksGrid.innerHTML = `<div class="col-span-full" style="grid-column: 1 / -1; padding: 60px 0; color: var(--txt-dim); font-size: 14px; font-weight: 600; text-align: center;">No custom matches found inside this feed layout.</div>`;
+        tracksGrid.innerHTML = `<div class="col-span-full" style="grid-column: 1 / -1; padding: 60px 0; color: var(--txt-dim); font-size: 14px; font-weight: 600; text-align: center;">No tracks found inside this feed playlist layout.</div>`;
     }
 }
 
@@ -222,7 +241,6 @@ async function dispatchPlaybackAction(track) {
     currentTrack = track;
     const currentId = track._id || track.id;
 
-    // Execute background video streaming playback safely using loaded iframe layers
     if (ytPlayerEngine && typeof ytPlayerEngine.loadVideoById === 'function') {
         ytPlayerEngine.loadVideoById(track.youtubeId);
         isPlaying = true;
@@ -262,11 +280,8 @@ playerPlayBtn.addEventListener('click', () => {
     if (!currentTrack || !ytPlayerEngine) return;
     isPlaying = !isPlaying;
     
-    if (isPlaying) {
-        ytPlayerEngine.playVideo();
-    } else {
-        ytPlayerEngine.pauseVideo();
-    }
+    if (isPlaying) ytPlayerEngine.playVideo();
+    else ytPlayerEngine.pauseVideo();
     updateAudioControlBarUI();
 });
 
@@ -293,7 +308,22 @@ playerLikeBtn.addEventListener('click', async () => {
 });
 
 /**
- * 5. Interface Filter Event Hooks
+ * 5. SEARCH INPUT ENGINE: LIVE INTERCEPTOR DEBOUNCE
+ */
+searchInput.addEventListener('input', (event) => {
+    searchQuery = event.target.value;
+    
+    // Clear processing window queues to manage keystroke network spam spikes
+    clearTimeout(searchDebounceTimeout);
+    
+    searchDebounceTimeout = setTimeout(async () => {
+        // Fetch live search results directly from YouTube via the backend API
+        await loadTracksDatabase(searchQuery);
+    }, 500); 
+});
+
+/**
+ * INTERFACE FILTER EVENT HOOKS
  */
 filterAllBtn.addEventListener('click', () => {
     activeFilter = 'all';
@@ -320,11 +350,6 @@ navHome.addEventListener('click', () => manageMenuViewState(navHome, 'home'));
 navFollowing.addEventListener('click', () => manageMenuViewState(navFollowing, 'following'));
 navRecent.addEventListener('click', () => manageMenuViewState(navRecent, 'recent'));
 navLiked.addEventListener('click', () => manageMenuViewState(navLiked, 'liked'));
-
-searchInput.addEventListener('input', (event) => {
-    searchQuery = event.target.value;
-    renderPersonalizedFeed();
-});
 
 /**
  * 6. Authentication Handling Functions
