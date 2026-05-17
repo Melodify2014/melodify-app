@@ -1,6 +1,6 @@
 /**
  * Melodify Backend Gateway Server
- * Added explicit Producer Filtering Pipelines and Channel-Specific Synchronizers
+ * Upgraded Channel Scrapers and Added Drift Mode Support
  */
 const express = require('express');
 const mongoose = require('mongoose');
@@ -43,53 +43,12 @@ const User = mongoose.model('User', UserSchema);
 const Track = mongoose.model('Track', TrackSchema);
 
 mongoose.connect(MONGO_URI)
-    .then(() => {
-        console.log('Successfully connected to MongoDB Cluster.');
-        syncChannelsExcludeShorts(); 
-    })
-    .catch(err => console.error('Database Connection Error Context:', err));
+    .then(() => console.log('Connected to MongoDB.'))
+    .catch(err => console.error('Database Error:', err));
 
 /**
- * AUTHENTICATION MIDDLEWARE & ROUTING INTERFACES
+ * AUTHENTICATION MIDDLEWARE
  */
-app.post('/api/auth/register', async (req, res) => {
-    try {
-        const { username, password } = req.body;
-        if (!username || !password) return res.status(400).json({ message: 'Username and password required.' });
-        
-        const exactMatchExists = await User.findOne({ username: username.toLowerCase() });
-        if (exactMatchExists) return res.status(400).json({ message: 'Username already taken.' });
-
-        const encryptedPassword = await bcrypt.hash(password, 10);
-        const newUser = await User.create({
-            username: username.toLowerCase(),
-            password: encryptedPassword,
-            likedTracks: [],
-            watchHistory: [],
-            following: []
-        });
-        return res.status(201).json({ message: 'User created successfully.', userId: newUser._id });
-    } catch (err) {
-        return res.status(500).json({ message: 'Internal Server Error during registration.' });
-    }
-});
-
-app.post('/api/auth/login', async (req, res) => {
-    try {
-        const { username, password } = req.body;
-        const targetUser = await User.findOne({ username: username.toLowerCase() });
-        if (!targetUser) return res.status(401).json({ message: 'Invalid credentials.' });
-
-        const matchingKey = await bcrypt.compare(password, targetUser.password);
-        if (!matchingKey) return res.status(401).json({ message: 'Invalid credentials.' });
-
-        const assignedTokenWrapper = jwt.sign({ id: targetUser._id }, JWT_SECRET, { expiresIn: '7d' });
-        return res.status(200).json({ token: assignedTokenWrapper });
-    } catch (err) {
-        return res.status(500).json({ message: 'Login process crash.' });
-    }
-});
-
 const parseBearerAuthenticationToken = async (req, res, next) => {
     try {
         const authHeader = req.headers['authorization'];
@@ -105,47 +64,95 @@ const parseBearerAuthenticationToken = async (req, res, next) => {
     }
 };
 
+app.post('/api/auth/register', async (req, res) => {
+    try {
+        const { username, password } = req.body;
+        if (!username || !password) return res.status(400).json({ message: 'Credentials required.' });
+        const exists = await User.findOne({ username: username.toLowerCase() });
+        if (exists) return res.status(400).json({ message: 'Username taken.' });
+
+        const encryptedPassword = await bcrypt.hash(password, 10);
+        await User.create({ username: username.toLowerCase(), password: encryptedPassword });
+        return res.status(201).json({ message: 'User created.' });
+    } catch (err) {
+        return res.status(500).json({ message: 'Registration failed.' });
+    }
+});
+
+app.post('/api/auth/login', async (req, res) => {
+    try {
+        const { username, password } = req.body;
+        const user = await User.findOne({ username: username.toLowerCase() });
+        if (!user || !(await bcrypt.compare(password, user.password))) {
+            return res.status(401).json({ message: 'Invalid credentials.' });
+        }
+        const token = jwt.sign({ id: user._id }, JWT_SECRET, { expiresIn: '7d' });
+        return res.status(200).json({ token });
+    } catch (err) {
+        return res.status(500).json({ message: 'Login failed.' });
+    }
+});
+
 app.get('/api/auth/me', parseBearerAuthenticationToken, (req, res) => {
     return res.status(200).json(req.verifiedUser);
 });
 
 /**
- * MUSIC TRACK & DYNAMIC PRODUCER SEARCH INTERFACES
+ * ENHANCED MUSIC TRACKS & CHANNELS SOURCE API
  */
 app.get('/api/tracks', async (req, res) => {
     try {
         const queryToken = req.query.q;
-        const producerTarget = req.query.producer; // Catch strict channel targets
+        const producerTarget = req.query.producer;
 
-        // Run search synchronization if a query or strict channel target is processed
+        // Deep synchronization via query or producer targeting
         const activeSearchTerm = producerTarget || queryToken;
         if (activeSearchTerm && activeSearchTerm.trim().length > 0) {
             try {
-                const searchResults = await ytSearch({ query: activeSearchTerm });
-                if (searchResults && searchResults.videos) {
-                    const filteredCollection = searchResults.videos.filter(video => video.seconds > 60).slice(0, 16);
-                    
-                    for (const video of filteredCollection) {
-                        await Track.findOneAndUpdate(
-                            { youtubeId: video.videoId },
-                            {
-                                title: video.title.replace(/[\(\[].*?[\)\]]/g, '').trim(),
-                                producer: video.author.name || activeSearchTerm,
-                                thumbnail: video.image || video.thumbnail,
-                                youtubeId: video.videoId,
-                                type: 'music',
-                                tags: ['search-sync']
-                            },
-                            { upsert: true }
-                        );
+                // Search specifically for channels first to access deeper playlists
+                const channelSearch = await ytSearch({ query: activeSearchTerm, category: 'channels' });
+                let searchTargetPool = [];
+
+                if (channelSearch && channelSearch.channels && channelSearch.channels.length > 0) {
+                    const matchedChannel = channelSearch.channels[0];
+                    // Fetch comprehensive feed data from the channel context wrapper
+                    const fullChannelFeed = await ytSearch({ channelId: matchedChannel.id });
+                    if (fullChannelFeed && fullChannelFeed.videos) {
+                        searchTargetPool = fullChannelFeed.videos;
                     }
                 }
+
+                // Fall back to broad video search if channel lookups return blank catalogs
+                if (searchTargetPool.length === 0) {
+                    const regularSearch = await ytSearch({ query: activeSearchTerm });
+                    searchTargetPool = regularSearch.videos || [];
+                }
+
+                // Filter out short files/clips and update local database collection
+                const targetedVideos = searchTargetPool.filter(video => (video.seconds || 0) > 45);
+                for (const video of targetedVideos) {
+                    const cleanTitle = video.title.replace(/[\(\[].*?[\)\]]/g, '').trim();
+                    const isDriftPhonk = /drift|phonk|rave|lxst|dxrk/i.test(video.title);
+
+                    await Track.findOneAndUpdate(
+                        { youtubeId: video.videoId },
+                        {
+                            title: cleanTitle,
+                            producer: producerTarget || video.author.name || 'Unknown Producer',
+                            thumbnail: video.image || video.thumbnail,
+                            youtubeId: video.videoId,
+                            type: 'music',
+                            tags: isDriftPhonk ? ['drift', 'phonk'] : ['music']
+                        },
+                        { upsert: true }
+                    );
+                }
             } catch (searchErr) {
-                console.error("Live sync skipped:", searchErr);
+                console.error("Deep search update bypassed:", searchErr);
             }
         }
 
-        // Build database query matrices
+        // Database Filtering Engine Matrix
         let queryCondition = {};
         if (producerTarget) {
             queryCondition = { producer: producerTarget };
@@ -158,7 +165,7 @@ app.get('/api/tracks', async (req, res) => {
             };
         }
 
-        const feedCatalog = await Track.find(queryCondition).limit(50);
+        const feedCatalog = await Track.find(queryCondition).sort({ _id: -1 }).limit(100);
         return res.status(200).json(feedCatalog);
     } catch (err) {
         return res.status(500).json({ message: 'Failed reading platform tracks matrix.' });
@@ -166,7 +173,7 @@ app.get('/api/tracks', async (req, res) => {
 });
 
 /**
- * USER RELATIONSHIP ROUTING VECTORS
+ * USER CONFIGURATIONS AND INTERACTION TRACKING
  */
 app.post('/api/users/history', parseBearerAuthenticationToken, async (req, res) => {
     try {
@@ -176,81 +183,33 @@ app.post('/api/users/history', parseBearerAuthenticationToken, async (req, res) 
             await req.verifiedUser.save();
         }
         return res.status(200).json(req.verifiedUser);
-    } catch (e) {
-        return res.status(500).json({ message: 'Failed appending history node.' });
-    }
+    } catch (e) { return res.status(500).json({ message: 'Failed appending history.' }); }
 });
 
 app.post('/api/users/like', parseBearerAuthenticationToken, async (req, res) => {
     try {
         const { trackId } = req.body;
-        const indexPosition = req.verifiedUser.likedTracks.indexOf(trackId);
-        if (indexPosition === -1) {
-            req.verifiedUser.likedTracks.push(trackId);
-        } else {
-            req.verifiedUser.likedTracks.splice(indexPosition, 1);
-        }
+        const pos = req.verifiedUser.likedTracks.indexOf(trackId);
+        if (pos === -1) req.verifiedUser.likedTracks.push(trackId);
+        else req.verifiedUser.likedTracks.splice(pos, 1);
         await req.verifiedUser.save();
         return res.status(200).json({ likedTracks: req.verifiedUser.likedTracks });
-    } catch (e) {
-        return res.status(500).json({ message: 'Failed updating target like value.' });
-    }
+    } catch (e) { return res.status(500).json({ message: 'Failed updating like.' }); }
 });
 
 app.post('/api/users/follow', parseBearerAuthenticationToken, async (req, res) => {
     try {
         const { producerName } = req.body;
-        if (!producerName) return res.status(400).json({ message: 'Producer identity required.' });
-
-        const searchPosition = req.verifiedUser.following.indexOf(producerName);
-        if (searchPosition === -1) {
-            req.verifiedUser.following.push(producerName);
-        } else {
-            req.verifiedUser.following.splice(searchPosition, 1);
-        }
-
+        const pos = req.verifiedUser.following.indexOf(producerName);
+        if (pos === -1) req.verifiedUser.following.push(producerName);
+        else req.verifiedUser.following.splice(pos, 1);
         await req.verifiedUser.save();
         return res.status(200).json({ following: req.verifiedUser.following });
-    } catch (err) {
-        return res.status(500).json({ message: 'Failed processing follow vectors.' });
-    }
+    } catch (err) { return res.status(500).json({ message: 'Failed updating follow state.' }); }
 });
 
 app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-async function syncChannelsExcludeShorts() {
-    const existingCount = await Track.countDocuments();
-    if (existingCount > 5) return; 
-
-    const starterHubs = ['INTERWORLD Phonk', 'DVRST Phonk', 'KSLV Noh'];
-    for (const producer of starterHubs) {
-        try {
-            const searchResults = await ytSearch({ query: producer });
-            if (!searchResults || !searchResults.videos) continue;
-            const longVideos = searchResults.videos.filter(v => v.seconds > 60).slice(0, 4);
-
-            for (const video of longVideos) {
-                await Track.findOneAndUpdate(
-                    { youtubeId: video.videoId },
-                    {
-                        title: video.title.replace(/[\(\[].*?[\)\]]/g, '').trim(),
-                        producer: video.author.name || producer,
-                        thumbnail: video.image || video.thumbnail,
-                        youtubeId: video.videoId,
-                        type: 'music',
-                        tags: ['drift', 'phonk']
-                    },
-                    { upsert: true }
-                );
-            }
-        } catch (e) {
-            console.error("Seeder skipped.");
-        }
-    }
-}
-
-app.listen(PORT, () => {
-    console.log(`Melodify Core Engine running on network hub: http://localhost:${PORT}`);
-});
+app.listen(PORT, () => console.log(`Server executing at http://localhost:${PORT}`));
