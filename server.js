@@ -1,5 +1,6 @@
 /**
  * Melodify Production Backend Gateway Server
+ * Maximized Scraper Pages for Deep Channel Harvesting
  */
 const express = require('express');
 const mongoose = require('mongoose');
@@ -98,7 +99,7 @@ app.get('/api/auth/me', parseBearerAuthenticationToken, (req, res) => {
 });
 
 /**
- * TRACK SCAPER & FINDER ENDPOINT
+ * DEEP SCAPING & TRACK FINDER ENDPOINT
  */
 app.get('/api/tracks', async (req, res) => {
     try {
@@ -107,34 +108,44 @@ app.get('/api/tracks', async (req, res) => {
 
         if (producerTarget && producerTarget.trim().length > 0) {
             try {
-                const intensiveSearch = await ytSearch({ query: `"${producerTarget}" song music`, pages: 2 });
-                if (intensiveSearch && intensiveSearch.videos) {
-                    const filteredItems = intensiveSearch.videos.filter(v => (v.seconds || 0) > 45);
+                // FIX: Added multi-layered search variations to gather hidden uploads
+                const searchVariations = [
+                    `"${producerTarget}" music`,
+                    `"${producerTarget}" song`
+                ];
 
-                    for (const video of filteredItems) {
-                        const cleanTitle = video.title.replace(/[\(\[].*?[\)\]]/g, '').trim();
-                        const isDriftPhonk = /drift|phonk|rave|lxst|dxrk/i.test(video.title);
+                for (const queryVariant of searchVariations) {
+                    // FIX: Increased to 'pages: 6' to scrape deep into the YouTube search index results
+                    const intensiveSearch = await ytSearch({ query: queryVariant, pages: 6 });
+                    
+                    if (intensiveSearch && intensiveSearch.videos) {
+                        const filteredItems = intensiveSearch.videos.filter(v => (v.seconds || 0) > 45);
 
-                        await Track.findOneAndUpdate(
-                            { youtubeId: video.videoId },
-                            {
-                                title: cleanTitle,
-                                producer: producerTarget,
-                                thumbnail: video.image || video.thumbnail,
-                                youtubeId: video.videoId,
-                                type: 'music',
-                                tags: isDriftPhonk ? ['drift', 'phonk'] : ['music']
-                            },
-                            { upsert: true }
-                        );
+                        for (const video of filteredItems) {
+                            const cleanTitle = video.title.replace(/[\(\[].*?[\)\]]/g, '').trim();
+                            const isDriftPhonk = /drift|phonk|rave|lxst|dxrk/i.test(video.title);
+
+                            await Track.findOneAndUpdate(
+                                { youtubeId: video.videoId },
+                                {
+                                    title: cleanTitle,
+                                    producer: producerTarget,
+                                    thumbnail: video.image || video.thumbnail,
+                                    youtubeId: video.videoId,
+                                    type: 'music',
+                                    tags: isDriftPhonk ? ['drift', 'phonk'] : ['music']
+                                },
+                                { upsert: true }
+                            );
+                        }
                     }
                 }
-            } catch (err) { console.error("Scraper update skipped gracefully:", err); }
+            } catch (err) { console.error("Scraper deep sync skipped gracefully:", err); }
         } else if (queryToken && queryToken.trim().length > 0) {
             try {
                 const standardSearch = await ytSearch({ query: queryToken });
                 if (standardSearch && standardSearch.videos) {
-                    for (const video of standardSearch.videos.slice(0, 30)) {
+                    for (const video of standardSearch.videos.slice(0, 40)) {
                         if ((video.seconds || 0) < 45) continue;
                         const cleanTitle = video.title.replace(/[\(\[].*?[\)\]]/g, '').trim();
                         await Track.findOneAndUpdate(
@@ -166,6 +177,7 @@ app.get('/api/tracks', async (req, res) => {
             };
         }
 
+        // Returns up to 500 cached tracks out of your database collection
         const feedCatalog = await Track.find(queryCondition).sort({ _id: -1 }).limit(500);
         return res.status(200).json(feedCatalog);
     } catch (err) {
