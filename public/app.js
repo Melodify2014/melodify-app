@@ -5,7 +5,7 @@
 
 const BACKEND_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' 
     ? 'http://localhost:5000' 
-    : 'https://melodify-phonk.onrender.com'; 
+    : `${window.location.protocol}//${window.location.host}`; 
 
 // Application State Vectors
 let tracksRawCollection = [];
@@ -41,7 +41,6 @@ const authUsernameInput = document.getElementById('auth-username');
 const authPasswordInput = document.getElementById('auth-password');
 const authSubmitBtn = document.getElementById('auth-submit-btn');
 const authToggleBtn = document.getElementById('auth-toggle-btn');
-const authToggleTextLabel = document.getElementById('auth-toggle-text-label');
 
 // Controller Selector Items
 const playerThumb = document.getElementById('player-thumb');
@@ -87,7 +86,7 @@ let searchDebounceTimeout = null;
                 'onStateChange': (event) => {
                     if (event.data === YT.PlayerState.ENDED) {
                         if (isDriftModeActive) {
-                            ytPlayerEngine.playVideo(); // Auto-loop track indefinitely
+                            ytPlayerEngine.playVideo(); 
                         } else {
                             isPlaying = false;
                             updateAudioControlBarUI();
@@ -124,7 +123,7 @@ async function apiRequest(endpoint, options = {}) {
 
         const response = await fetch(`${BACKEND_URL}${endpoint}`, { ...options, headers });
         const data = await response.json();
-        if (!response.ok) throw new Error(data.message || 'Network operations pipeline rejected.');
+        if (!response.ok) throw new Error(data.message || 'Pipeline process crash.');
         return data;
     } catch (err) {
         console.error(`Network Failure [${endpoint}]:`, err);
@@ -172,7 +171,7 @@ async function openChannelView(producerName) {
     selectedProducer = producerName;
     
     [navHome, navFollowing, navRecent, navLiked].forEach(btn => btn.classList.remove('active'));
-    tracksGrid.innerHTML = `<div style="grid-column: 1/-1; text-align: center; padding: 40px; color: var(--txt-dim); font-size: 14px;"><i class="fa-solid fa-spinner fa-spin"></i> Indexing deep channel upload directory logs from YouTube...</div>`;
+    tracksGrid.innerHTML = `<div style="grid-column: 1/-1; text-align: center; padding: 40px; color: var(--txt-dim); font-size: 14px;"><i class="fa-solid fa-spinner fa-spin"></i> Loading tracks dynamically from database cluster layers...</div>`;
     
     await loadTracksDatabase("", producerName);
 }
@@ -187,9 +186,8 @@ function renderPersonalizedFeed() {
     const activeHistoryList = userSessionProfile?.watchHistory || clientWatchHistory;
     const activeFollowingList = userSessionProfile?.following || clientFollowingList;
 
-    // View Mapping Condition: Generate Clean Directories for Following View States
     if (currentViewMode === 'following') {
-        feedHeading.textContent = "Following Channels";
+        feedHeading.textContent = "Following Producers Feed";
         if (activeFollowingList.length === 0) {
             tracksGrid.innerHTML = `<div style="grid-column: 1 / -1; padding: 60px 0; color: var(--txt-dim); font-size: 14px; text-align: center;">You are not following any channels yet.</div>`;
             return;
@@ -318,6 +316,7 @@ async function dispatchPlaybackAction(track) {
 }
 
 function updateAudioControlBarUI() {
+    if (!playIcon) return;
     playIcon.className = isPlaying ? "fa-solid fa-pause" : "fa-solid fa-play";
     
     if (isDriftModeActive) {
