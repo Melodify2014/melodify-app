@@ -16,7 +16,7 @@ let state = {
   progressPercent: 0,
   likedTrackIds: [],
   recentTrackIds: [],
-  followingCache: [] // Local memory pipeline array
+  followedChannels: [] // Array format: { id: "CHANNEL_ID", title: "CHANNEL_TITLE" }
 };
 
 // --- YouTube Embedded Player Instance ---
@@ -101,7 +101,7 @@ function setupEventBindings() {
 function loadLocalStorageCacheContext() {
   state.likedTrackIds = JSON.parse(localStorage.getItem(`liked_${state.currentUser}`)) || [];
   state.recentTrackIds = JSON.parse(localStorage.getItem(`recent_${state.currentUser}`)) || [];
-  state.followingCache = JSON.parse(localStorage.getItem(`following_cache_${state.currentUser}`)) || [];
+  state.followedChannels = JSON.parse(localStorage.getItem(`followed_channels_${state.currentUser}`)) || [];
 }
 
 // --- Core View Navigator Logic ---
@@ -114,13 +114,10 @@ function switchView(targetView) {
     searchYouTube(state.searchQuery);
   } else if (targetView === "following") {
     if (nodes.navFollowing) nodes.navFollowing.classList.add("active");
-    if (nodes.feedHeading) nodes.feedHeading.textContent = "Following Channels Cache";
-    TRACKS_DATABASE = [...state.followingCache];
-    renderTrackWorkspace();
+    buildFollowingChannelsFeed();
   } else if (targetView === "recent") {
     if (nodes.navRecent) nodes.navRecent.classList.add("active");
     if (nodes.feedHeading) nodes.feedHeading.textContent = "Recently Played";
-    // Load tracking database from local history storage objects
     const historicalStorage = JSON.parse(localStorage.getItem(`history_objects_${state.currentUser}`)) || [];
     TRACKS_DATABASE = historicalStorage.filter(t => state.recentTrackIds.includes(t.id));
     renderTrackWorkspace();
@@ -157,13 +154,14 @@ async function searchYouTube(query) {
 
     TRACKS_DATABASE = data.items.map(item => ({
       id: item.id.videoId,
+      channelId: item.snippet.channelId, // Saved to pass to follow functions
       title: item.snippet.title.replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, "&"),
       producer: item.snippet.channelTitle,
       thumbnail: item.snippet.thumbnails.medium.url,
       badge: "YT"
     }));
 
-    // Back up results into historical database array so Liked/Recent sections can find details later
+    // Save metadata back into historical container objects
     const historicalStorage = JSON.parse(localStorage.getItem(`history_objects_${state.currentUser}`)) || [];
     TRACKS_DATABASE.forEach(track => {
       if (!historicalStorage.some(h => h.id === track.id)) historicalStorage.push(track);
@@ -178,6 +176,56 @@ async function searchYouTube(query) {
   }
 }
 
+// --- Dynamic Following Engine Builder ---
+async function buildFollowingChannelsFeed() {
+  if (nodes.feedHeading) nodes.feedHeading.textContent = "Following Feed";
+  
+  if (state.followedChannels.length === 0) {
+    nodes.tracksGrid.innerHTML = `
+      <div style="grid-column: 1/-1; text-align: center; color: var(--txt-dim); padding-top: 40px; font-size: 13px;">
+        You aren't following any channels yet! Search on Home and tap 'Follow' next to creators.
+      </div>`;
+    return;
+  }
+
+  nodes.tracksGrid.innerHTML = `<div style="color:var(--txt-dim); padding: 20px;">Querying followed producers...</div>`;
+  let compiledTracks = [];
+
+  try {
+    // Query last 5 tracks for every channel followed
+    for (let channel of state.followedChannels) {
+      const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=5&channelId=${channel.id}&type=video&order=date&key=${YOUTUBE_API_KEY}`;
+      const res = await fetch(url);
+      const data = await res.json();
+      
+      if (data.items) {
+        const structuralTracks = data.items.map(item => ({
+          id: item.id.videoId,
+          channelId: channel.id,
+          title: item.snippet.title.replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, "&"),
+          producer: channel.title,
+          thumbnail: item.snippet.thumbnails.medium.url,
+          badge: "Feed"
+        }));
+        compiledTracks = compiledTracks.concat(structuralTracks);
+      }
+    }
+
+    TRACKS_DATABASE = compiledTracks;
+
+    // Cache to historical registry data logs
+    const historicalStorage = JSON.parse(localStorage.getItem(`history_objects_${state.currentUser}`)) || [];
+    TRACKS_DATABASE.forEach(track => {
+      if (!historicalStorage.some(h => h.id === track.id)) historicalStorage.push(track);
+    });
+    localStorage.setItem(`history_objects_${state.currentUser}`, JSON.stringify(historicalStorage));
+
+    renderTrackWorkspace();
+  } catch (err) {
+    nodes.tracksGrid.innerHTML = `<div style="color:red; padding: 20px;">Failed to compile followed channel feeds.</div>`;
+  }
+}
+
 // --- Render Core DOM View Structure Elements ---
 function renderTrackWorkspace() {
   if (!nodes.tracksGrid) return;
@@ -186,12 +234,14 @@ function renderTrackWorkspace() {
   if (TRACKS_DATABASE.length === 0) {
     nodes.tracksGrid.innerHTML = `
       <div style="grid-column: 1/-1; text-align: center; color: var(--txt-dim); padding-top: 40px; font-size: 13px;">
-        No tracks found inside this signal view dashboard.
+        No tracks found inside this view channel dashboard.
       </div>`;
     return;
   }
 
   TRACKS_DATABASE.forEach(track => {
+    const isFollowing = state.followedChannels.some(c => c.id === track.channelId);
+
     const card = document.createElement("div");
     card.className = "track-card";
     card.innerHTML = `
@@ -203,12 +253,47 @@ function renderTrackWorkspace() {
       </div>
       <span class="card-badge">${track.badge}</span>
       <h4>${track.title}</h4>
-      <p>${track.producer}</p>
+      <div class="card-meta-row">
+        <p>${track.producer}</p>
+        <button class="btn-follow-toggle ${isFollowing ? 'following-active' : ''}" data-channel-id="${track.channelId}" data-channel-title="${track.producer}">
+          ${isFollowing ? 'Following' : 'Follow'}
+        </button>
+      </div>
     `;
+
+    // Stop card music launch event from stepping on follow toggles clicks
+    card.querySelector(".btn-follow-toggle").addEventListener("click", (e) => {
+      e.stopPropagation();
+      toggleChannelFollowState(track.channelId, track.producer);
+    });
 
     card.addEventListener("click", () => selectAndPlayTrack(track));
     nodes.tracksGrid.appendChild(card);
   });
+}
+
+// --- Toggle Follow System Mechanics Action ---
+function toggleChannelFollowState(channelId, channelTitle) {
+  if (!channelId) return;
+
+  const matchIndex = state.followedChannels.findIndex(c => c.id === channelId);
+
+  if (matchIndex > -1) {
+    // Unfollow
+    state.followedChannels.splice(matchIndex, 1);
+  } else {
+    // Follow
+    state.followedChannels.push({ id: channelId, title: channelTitle });
+  }
+
+  localStorage.setItem(`followed_channels_${state.currentUser}`, JSON.stringify(state.followedChannels));
+  
+  // Re-render context views gracefully
+  if (state.currentView === "following") {
+    buildFollowingChannelsFeed();
+  } else {
+    renderTrackWorkspace();
+  }
 }
 
 // --- Live Audio Deck Controller Engine ---
@@ -221,13 +306,6 @@ function selectAndPlayTrack(track) {
   state.currentTrack = track;
   state.progressPercent = 0;
 
-  // Cache System Action: Automatically store track in the Following Feed Cache
-  if (!state.followingCache.some(item => item.id === track.id)) {
-    state.followingCache.push({ ...track, badge: "Cached" });
-    localStorage.setItem(`following_cache_${state.currentUser}`, JSON.stringify(state.followingCache));
-  }
-
-  // Update Recent playback index metrics array keys 
   state.recentTrackIds = [track.id, ...state.recentTrackIds.filter(id => id !== track.id)].slice(0, 20);
   localStorage.setItem(`recent_${state.currentUser}`, JSON.stringify(state.recentTrackIds));
 
