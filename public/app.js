@@ -3,26 +3,25 @@
 const YOUTUBE_API_KEY = 'AIzaSyANndBije8n2js5wtfLb05SDW91IGsiqOg';
 // ==========================================
 
-let TRACKS_DATABASE = []; // This will now populate from YouTube dynamically
+let TRACKS_DATABASE = []; 
 
 let state = {
-  currentUser: null,
-  isRegistering: false,
+  currentUser: "melodify owner",
   currentView: "home",
-  searchQuery: "phonk music", // Default search on load
+  searchQuery: "phonk music", 
   currentTrack: null,
   isPlaying: false,
   isDriftMode: false,
   playbackInterval: null,
   progressPercent: 0,
   likedTrackIds: [],
-  recentTrackIds: []
+  recentTrackIds: [],
+  followingCache: [] // Local memory pipeline array
 };
 
-// --- YouTube Player Setup ---
+// --- YouTube Embedded Player Instance ---
 let ytPlayer;
 
-// This function is automatically called by the YouTube script in your HTML
 window.onYouTubeIframeAPIReady = function() {
   ytPlayer = new YT.Player('yt-player-container', {
     height: '0',
@@ -36,7 +35,6 @@ window.onYouTubeIframeAPIReady = function() {
 };
 
 function onPlayerStateChange(event) {
-  // YT.PlayerState.PLAYING is 1
   if (event.data === 1) {
     state.isPlaying = true;
     nodes.playIcon.className = "fa-solid fa-pause";
@@ -46,10 +44,13 @@ function onPlayerStateChange(event) {
   }
 }
 
-// --- Target DOM Nodes ---
+// --- Target DOM Node System Map ---
 const nodes = {
   appViewport: document.getElementById("app-viewport"),
   navHome: document.getElementById("nav-home"),
+  navFollowing: document.getElementById("nav-following"),
+  navRecent: document.getElementById("nav-recent"),
+  navLiked: document.getElementById("nav-liked"),
   searchInput: document.getElementById("search-input"),
   userDisplay: document.getElementById("user-display"),
   feedHeading: document.getElementById("feed-heading"),
@@ -59,77 +60,136 @@ const nodes = {
   playerProducer: document.getElementById("player-producer"),
   playerPlayBtn: document.getElementById("player-play-btn"),
   playIcon: document.getElementById("play-icon"),
+  playerLikeBtn: document.getElementById("player-like-btn"),
+  likeIcon: document.getElementById("like-icon"),
   playerProgress: document.getElementById("player-progress"),
-  progressBarContainer: document.querySelector(".progress-bar")
+  progressBarContainer: document.querySelector(".progress-bar"),
+  playerDriftBtn: document.getElementById("player-drift-btn")
 };
 
 document.addEventListener("DOMContentLoaded", () => {
   setupEventBindings();
-  // Fetch initial tracks on load
+  loadLocalStorageCacheContext();
   searchYouTube(state.searchQuery);
 });
 
 function setupEventBindings() {
-  if (nodes.navHome) nodes.navHome.addEventListener("click", () => searchYouTube("phonk music"));
+  if (nodes.navHome) nodes.navHome.addEventListener("click", () => switchView("home"));
+  if (nodes.navFollowing) nodes.navFollowing.addEventListener("click", () => switchView("following"));
+  if (nodes.navRecent) nodes.navRecent.addEventListener("click", () => switchView("recent"));
+  if (nodes.navLiked) nodes.navLiked.addEventListener("click", () => switchView("liked"));
 
-  // Using "keydown" for Enter key to save API Quota. 
-  // Searching on every single letter typed will exhaust your free API key instantly.
   if (nodes.searchInput) {
     nodes.searchInput.addEventListener("keydown", (e) => {
       if (e.key === 'Enter') {
         state.searchQuery = e.target.value;
+        state.currentView = "home";
+        document.querySelectorAll(".sidebar .menu-item").forEach(btn => btn.classList.remove("active"));
+        if (nodes.navHome) nodes.navHome.classList.add("active");
         searchYouTube(state.searchQuery);
       }
     });
   }
 
   if (nodes.playerPlayBtn) nodes.playerPlayBtn.addEventListener("click", togglePlaybackState);
+  if (nodes.playerLikeBtn) nodes.playerLikeBtn.addEventListener("click", toggleTrackLikeState);
   if (nodes.progressBarContainer) nodes.progressBarContainer.addEventListener("click", scrubPlaybackTimeline);
+  if (nodes.playerDriftBtn) nodes.playerDriftBtn.addEventListener("click", toggleDriftOverdrive);
 }
 
-// --- YouTube API Data Fetching ---
+// --- Local Storage Management ---
+function loadLocalStorageCacheContext() {
+  state.likedTrackIds = JSON.parse(localStorage.getItem(`liked_${state.currentUser}`)) || [];
+  state.recentTrackIds = JSON.parse(localStorage.getItem(`recent_${state.currentUser}`)) || [];
+  state.followingCache = JSON.parse(localStorage.getItem(`following_cache_${state.currentUser}`)) || [];
+}
+
+// --- Core View Navigator Logic ---
+function switchView(targetView) {
+  document.querySelectorAll(".sidebar .menu-item").forEach(btn => btn.classList.remove("active"));
+  state.currentView = targetView;
+
+  if (targetView === "home") {
+    if (nodes.navHome) nodes.navHome.classList.add("active");
+    searchYouTube(state.searchQuery);
+  } else if (targetView === "following") {
+    if (nodes.navFollowing) nodes.navFollowing.classList.add("active");
+    if (nodes.feedHeading) nodes.feedHeading.textContent = "Following Channels Cache";
+    TRACKS_DATABASE = [...state.followingCache];
+    renderTrackWorkspace();
+  } else if (targetView === "recent") {
+    if (nodes.navRecent) nodes.navRecent.classList.add("active");
+    if (nodes.feedHeading) nodes.feedHeading.textContent = "Recently Played";
+    // Load tracking database from local history storage objects
+    const historicalStorage = JSON.parse(localStorage.getItem(`history_objects_${state.currentUser}`)) || [];
+    TRACKS_DATABASE = historicalStorage.filter(t => state.recentTrackIds.includes(t.id));
+    renderTrackWorkspace();
+  } else if (targetView === "liked") {
+    if (nodes.navLiked) nodes.navLiked.classList.add("active");
+    if (nodes.feedHeading) nodes.feedHeading.textContent = "Your Underground Stash";
+    const historicalStorage = JSON.parse(localStorage.getItem(`history_objects_${state.currentUser}`)) || [];
+    TRACKS_DATABASE = historicalStorage.filter(t => state.likedTrackIds.includes(t.id));
+    renderTrackWorkspace();
+  }
+}
+
+// --- Live YouTube Network Fetch Operations ---
 async function searchYouTube(query) {
   if (!YOUTUBE_API_KEY || YOUTUBE_API_KEY === 'YOUR_YOUTUBE_API_KEY_HERE') {
     nodes.tracksGrid.innerHTML = `<div style="color:red; padding: 20px;">Missing YouTube API Key on Line 2!</div>`;
     return;
   }
 
-  nodes.feedHeading.textContent = `Searching: ${query}...`;
+  if (state.currentView !== "home") return;
+
+  if (nodes.feedHeading) nodes.feedHeading.textContent = `Searching: ${query}...`;
   nodes.tracksGrid.innerHTML = `<div style="color:var(--txt-dim); padding: 20px;">Fetching from YouTube...</div>`;
 
   try {
-    const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=15&q=${encodeURIComponent(query)}&type=video&key=${YOUTUBE_API_KEY}`;
+    const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=18&q=${encodeURIComponent(query)}&type=video&key=${YOUTUBE_API_KEY}`;
     const response = await fetch(url);
     const data = await response.json();
 
     if (data.error) {
-      console.error("YouTube API Error:", data.error.message);
-      nodes.tracksGrid.innerHTML = `<div style="color:red;">API Error: ${data.error.message}</div>`;
+      nodes.tracksGrid.innerHTML = `<div style="color:red; padding: 20px;">API Error: ${data.error.message}</div>`;
       return;
     }
 
-    // Convert YouTube data into our Track format
     TRACKS_DATABASE = data.items.map(item => ({
       id: item.id.videoId,
-      title: item.snippet.title.replace(/&quot;/g, '"').replace(/&#39;/g, "'"), // Clean up HTML entities
+      title: item.snippet.title.replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, "&"),
       producer: item.snippet.channelTitle,
       thumbnail: item.snippet.thumbnails.medium.url,
       badge: "YT"
     }));
 
-    nodes.feedHeading.textContent = "Search Results";
+    // Back up results into historical database array so Liked/Recent sections can find details later
+    const historicalStorage = JSON.parse(localStorage.getItem(`history_objects_${state.currentUser}`)) || [];
+    TRACKS_DATABASE.forEach(track => {
+      if (!historicalStorage.some(h => h.id === track.id)) historicalStorage.push(track);
+    });
+    localStorage.setItem(`history_objects_${state.currentUser}`, JSON.stringify(historicalStorage));
+
+    if (nodes.feedHeading) nodes.feedHeading.textContent = "Phonk Feed";
     renderTrackWorkspace();
 
   } catch (error) {
-    console.error("Failed to fetch tracks:", error);
-    nodes.tracksGrid.innerHTML = `<div style="color:var(--txt-dim);">Network error occurred.</div>`;
+    nodes.tracksGrid.innerHTML = `<div style="color:var(--txt-dim); padding: 20px;">Failed to connect to streaming cloud feed.</div>`;
   }
 }
 
-// --- Render UI ---
+// --- Render Core DOM View Structure Elements ---
 function renderTrackWorkspace() {
   if (!nodes.tracksGrid) return;
   nodes.tracksGrid.innerHTML = "";
+
+  if (TRACKS_DATABASE.length === 0) {
+    nodes.tracksGrid.innerHTML = `
+      <div style="grid-column: 1/-1; text-align: center; color: var(--txt-dim); padding-top: 40px; font-size: 13px;">
+        No tracks found inside this signal view dashboard.
+      </div>`;
+    return;
+  }
 
   TRACKS_DATABASE.forEach(track => {
     const card = document.createElement("div");
@@ -151,7 +211,7 @@ function renderTrackWorkspace() {
   });
 }
 
-// --- Live Audio Deck Controller ---
+// --- Live Audio Deck Controller Engine ---
 function selectAndPlayTrack(track) {
   if (state.currentTrack?.id === track.id) {
     togglePlaybackState();
@@ -161,18 +221,28 @@ function selectAndPlayTrack(track) {
   state.currentTrack = track;
   state.progressPercent = 0;
 
-  // Update UI
+  // Cache System Action: Automatically store track in the Following Feed Cache
+  if (!state.followingCache.some(item => item.id === track.id)) {
+    state.followingCache.push({ ...track, badge: "Cached" });
+    localStorage.setItem(`following_cache_${state.currentUser}`, JSON.stringify(state.followingCache));
+  }
+
+  // Update Recent playback index metrics array keys 
+  state.recentTrackIds = [track.id, ...state.recentTrackIds.filter(id => id !== track.id)].slice(0, 20);
+  localStorage.setItem(`recent_${state.currentUser}`, JSON.stringify(state.recentTrackIds));
+
   if (nodes.playerThumb) nodes.playerThumb.src = track.thumbnail;
   if (nodes.playerTitle) nodes.playerTitle.textContent = track.title;
   if (nodes.playerProducer) nodes.playerProducer.textContent = track.producer;
 
-  // Load into YouTube Player and Play
+  updateLikeButtonUIState();
+
   if (ytPlayer && ytPlayer.loadVideoById) {
     ytPlayer.loadVideoById(track.id);
   }
   
-  startProgressTracker();
-  renderTrackWorkspace(); // Re-render to show correct play/pause icon on card
+  startProgressTrackerLoop();
+  renderTrackWorkspace();
 }
 
 function togglePlaybackState() {
@@ -185,8 +255,7 @@ function togglePlaybackState() {
   }
 }
 
-// Tracks real progress from the YouTube API
-function startProgressTracker() {
+function startProgressTrackerLoop() {
   if (state.playbackInterval) clearInterval(state.playbackInterval);
   
   state.playbackInterval = setInterval(() => {
@@ -199,21 +268,56 @@ function startProgressTracker() {
         if (nodes.playerProgress) nodes.playerProgress.style.width = `${state.progressPercent}%`;
       }
     }
-  }, 500);
+  }, 400);
 }
 
 function scrubPlaybackTimeline(e) {
   if (!state.currentTrack || !ytPlayer || !nodes.progressBarContainer) return;
   
   const rect = nodes.progressBarContainer.getBoundingClientRect();
-  const clickX = e.clientX - rect.left;
-  const clickPercent = clickX / rect.width;
-  
+  const clickPercent = (e.clientX - rect.left) / rect.width;
   const total = ytPlayer.getDuration();
+  
   if (total > 0) {
-    const newTime = clickPercent * total;
-    ytPlayer.seekTo(newTime, true);
+    ytPlayer.seekTo(clickPercent * total, true);
     state.progressPercent = clickPercent * 100;
     if (nodes.playerProgress) nodes.playerProgress.style.width = `${state.progressPercent}%`;
+  }
+}
+
+function toggleTrackLikeState() {
+  if (!state.currentTrack) return;
+  const id = state.currentTrack.id;
+
+  if (state.likedTrackIds.includes(id)) {
+    state.likedTrackIds = state.likedTrackIds.filter(i => i !== id);
+  } else {
+    state.likedTrackIds.push(id);
+  }
+
+  localStorage.setItem(`liked_${state.currentUser}`, JSON.stringify(state.likedTrackIds));
+  updateLikeButtonUIState();
+  if (state.currentView === "liked") switchView("liked");
+}
+
+function updateLikeButtonUIState() {
+  if (!nodes.playerLikeBtn || !nodes.likeIcon) return;
+  if (state.currentTrack && state.likedTrackIds.includes(state.currentTrack.id)) {
+    nodes.playerLikeBtn.classList.add("liked");
+    nodes.likeIcon.className = "fa-solid fa-heart";
+  } else {
+    nodes.playerLikeBtn.classList.remove("liked");
+    nodes.likeIcon.className = "fa-regular fa-heart";
+  }
+}
+
+function toggleDriftOverdrive() {
+  state.isDriftMode = !state.isDriftMode;
+  if (state.isDriftMode) {
+    if (nodes.appViewport) nodes.appViewport.classList.add("drift-active");
+    if (nodes.playerDriftBtn) nodes.playerDriftBtn.style.color = "var(--accent-drift)";
+  } else {
+    if (nodes.appViewport) nodes.appViewport.classList.remove("drift-active");
+    if (nodes.playerDriftBtn) nodes.playerDriftBtn.style.color = "";
   }
 }
