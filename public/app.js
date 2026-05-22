@@ -3,6 +3,27 @@
  * 1. STATE MANAGEMENT & GLOBALS
  * ==========================================================================
  */
+/**
+ * ==========================================================================
+ * YOUTUBE DATA API CONFIGURATION (OPTIONAL)
+ * ==========================================================================
+ * Place your Google Cloud Console API key inside the quotes below if you 
+ * are transitioning from mock data to live server queries.
+ */
+const YT_DATA_API_KEY = "AIzaSyANndBije8n2js5wtfLb05SDW91IGsiqOg";
+
+/**
+ * ==========================================================================
+ * 1. STATE MANAGEMENT & GLOBALS
+ * ==========================================================================
+ */
+let ytPlayer = null;
+let playbackInterval = null;
+let currentTrackList = [];
+let currentTrackIndex = -1;
+let currentView = 'home';
+
+// ... Rest of your clean app.js code continues exactly as before
 let ytPlayer = null;
 let playbackInterval = null;
 let currentTrackList = [];
