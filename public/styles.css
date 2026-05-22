@@ -1,248 +1,270 @@
+/* ==========================================================================
+   1. DESIGN SYSTEM VARIABLES & CORE RESET
+   ========================================================================== */
 :root {
-  --bg-base: #050508;
-  --bg-surface: #0c0c12;
-  --bg-card: #14141f;
-  --bg-card-hover: #1c1c2b;
-  --accent: #ff0055;
-  --accent-glow: rgba(255, 0, 85, 0.35);
+  --bg-app: #08080c;
+  --bg-sidebar: #0f0f15;
+  --bg-card: #151522;
+  --bg-card-hover: #1e1e30;
+  --bg-player: #0b0b11;
+  --accent-primary: #ff0055;
   --accent-drift: #00ffcc;
   --txt-main: #ffffff;
-  --txt-dim: #888899;
-  --border: rgba(255, 255, 255, 0.06);
-  --sidebar-width: 200px;
-  --player-height: 72px;
+  --txt-dim: #7e7e9a;
+  --border-color: rgba(255, 255, 255, 0.05);
+  --font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 }
 
 * {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
-  user-select: none;
 }
 
 body {
-  background-color: var(--bg-base);
+  background-color: var(--bg-app);
   color: var(--txt-main);
+  font-family: var(--font-family);
   overflow: hidden;
-  width: 100vw;
   height: 100vh;
+  width: 100vw;
 }
 
-.app-container {
-  display: flex;
-  width: 100%;
-  height: 100%;
-  padding-bottom: var(--player-height);
-  position: relative;
+/* ==========================================================================
+   2. MAIN APPLICATION VIEWPORT LAYOUT
+   ========================================================================== */
+#app-viewport {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  grid-template-rows: 70px 1fr 90px;
+  grid-template-areas:
+    "sidebar topbar"
+    "sidebar main"
+    "player player";
+  height: 100vh;
+  width: 100vw;
+  transition: all 0.5s ease;
 }
 
-/* --- Drift Mode Overdrive State --- */
-.app-container.drift-active {
-  animation: driftShake 0.18s infinite alternate;
-  box-shadow: inset 0 0 100px rgba(0, 255, 204, 0.15);
-}
-.app-container.drift-active .sidebar {
-  border-right-color: var(--accent-drift);
-}
-.app-container.drift-active #logo-icon,
-.app-container.drift-active #player-drift-btn {
-  color: var(--accent-drift);
-  text-shadow: 0 0 12px var(--accent-drift);
-}
-
-/* --- Sidebar Module Styles --- */
+/* ==========================================================================
+   3. SIDEBAR NAVIGATION BRANDING
+   ========================================================================== */
 .sidebar {
-  width: var(--sidebar-width);
-  background-color: var(--bg-surface);
-  border-right: 1px solid var(--border);
+  grid-area: sidebar;
+  background-color: var(--bg-sidebar);
+  border-right: 1px solid var(--border-color);
   display: flex;
   flex-direction: column;
-  padding: 16px;
+  padding: 24px;
   z-index: 10;
-  transition: border-color 0.3s ease;
 }
 
-.logo {
+.brand-wrapper {
   display: flex;
   align-items: center;
   gap: 10px;
-  font-size: 16px;
-  font-weight: 900;
-  letter-spacing: 2px;
-  color: var(--txt-main);
-  margin-bottom: 24px;
+  margin-bottom: 35px;
 }
 
-.logo i {
-  color: var(--accent);
-  transition: all 0.3s ease;
+.brand-wrapper i {
+  color: var(--accent-primary);
+  font-size: 22px;
 }
 
-.menu {
+.brand-wrapper h1 {
+  font-size: 20px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.sidebar .menu-group {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 8px;
 }
 
-.menu-item {
+.sidebar .menu-item {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 16px;
+  padding: 12px 16px;
+  color: var(--txt-dim);
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
   background: none;
   border: none;
-  color: var(--txt-dim);
-  font-size: 13px;
-  font-weight: 600;
-  padding: 10px 12px;
-  border-radius: 6px;
-  cursor: pointer;
   text-align: left;
-  transition: all 0.2s ease;
+  width: 100%;
 }
 
-.menu-item:hover {
+.sidebar .menu-item:hover {
   color: var(--txt-main);
   background-color: rgba(255, 255, 255, 0.03);
 }
 
-.menu-item.active {
+.sidebar .menu-item.active {
   color: var(--txt-main);
-  background-color: var(--accent);
+  background: linear-gradient(90deg, var(--accent-primary) 0%, #cc0044 100%);
 }
 
-/* --- Content Hub Architecture --- */
-.main-content {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  overflow-y: auto;
-  background: linear-gradient(180deg, #09090e 0%, var(--bg-base) 100%);
-}
-
-.top-bar {
+/* ==========================================================================
+   4. TOPBAR SEARCH & PROFILE CONTEXT
+   ========================================================================== */
+.topbar {
+  grid-area: topbar;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 24px;
-  border-bottom: 1px solid var(--border);
-  background-color: rgba(5, 5, 8, 0.6);
-  backdrop-filter: blur(12px);
-  position: sticky;
-  top: 0;
-  z-index: 9;
+  padding: 0 32px;
+  border-bottom: 1px solid var(--border-color);
+  background-color: rgba(8, 8, 12, 0.8);
+  backdrop-filter: blur(10px);
+  z-index: 5;
 }
 
-.search-box {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  background-color: var(--bg-surface);
-  border: 1px solid var(--border);
-  padding: 8px 14px;
-  border-radius: 20px;
-  width: 320px;
-  transition: border-color 0.25s ease;
+.search-container {
+  position: relative;
+  width: 400px;
 }
 
-.search-box:focus-within {
-  border-color: var(--accent);
-}
-
-.search-box i {
+.search-container i {
+  position: absolute;
+  left: 16px;
+  top: 50%;
+  transform: translateY(-50%);
   color: var(--txt-dim);
-  font-size: 13px;
+  font-size: 14px;
 }
 
-.search-box input {
-  background: none;
-  border: none;
-  color: var(--txt-main);
-  font-size: 13px;
+.search-container input {
   width: 100%;
-  outline: none;
-}
-
-#user-display {
-  font-size: 12px;
-  font-weight: 600;
+  background-color: #12121a;
+  border: 1px solid var(--border-color);
+  border-radius: 20px;
+  padding: 10px 16px 10px 46px;
   color: var(--txt-main);
+  font-family: var(--font-family);
+  font-size: 13px;
+  outline: none;
+  transition: border-color 0.2s;
 }
 
-/* --- Compact Stream Feed Grid --- */
-.content-body {
-  padding: 24px 32px;
+.search-container input:focus {
+  border-color: var(--accent-primary);
 }
 
-.feed-header {
+.user-profile-widget {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.user-profile-widget span {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--txt-main);
+  letter-spacing: 0.5px;
+}
+
+.btn-logout {
+  background-color: #12121a;
+  border: 1px solid var(--border-color);
+  color: var(--txt-dim);
+  padding: 6px 14px;
+  font-size: 11px;
+  font-weight: 600;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-logout:hover {
+  color: var(--txt-main);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+/* ==========================================================================
+   5. MAIN CONTENT REGION WORKSPACE
+   ========================================================================== */
+.main-content-workspace {
+  grid-area: main;
+  overflow-y: auto;
+  padding: 32px;
+}
+
+.feed-header-wrapper {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 20px;
+  margin-bottom: 24px;
 }
 
-h1 {
-  font-size: 22px;
+.feed-title-context {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+#feed-heading {
+  font-size: 24px;
   font-weight: 800;
   letter-spacing: -0.5px;
 }
 
-.filter-tabs {
-  display: flex;
-  gap: 4px;
-  background-color: var(--bg-surface);
-  padding: 3px;
+.btn-back-nav {
+  background-color: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border-color);
+  color: var(--txt-main);
+  padding: 6px 12px;
   border-radius: 6px;
-  border: 1px solid var(--border);
-}
-
-.tab {
-  background: none;
-  border: none;
-  color: var(--txt-dim);
   font-size: 12px;
   font-weight: 600;
-  padding: 4px 12px;
-  border-radius: 4px;
   cursor: pointer;
-  transition: all 0.2s ease;
+  display: none;
 }
 
-.tab.active {
-  background-color: var(--bg-card);
-  color: var(--txt-main);
+.btn-back-nav:hover {
+  background-color: rgba(255, 255, 255, 0.1);
 }
 
-.tracks-grid {
+/* ==========================================================================
+   6. GRID ARRAYS & MUSIC VIDEO CARD MECHANICS
+   ========================================================================== */
+.tracks-grid-layout {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); 
-  gap: 20px;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 24px;
 }
 
 .track-card {
   background-color: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  padding: 14px;
   cursor: pointer;
   position: relative;
-  display: flex;
-  flex-direction: column;
-  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: transform 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .track-card:hover {
   background-color: var(--bg-card-hover);
-  transform: translateY(-2px);
-  border-color: rgba(255, 0, 85, 0.2);
+  transform: translateY(-4px);
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.3);
 }
 
+/* FIX: Forces perfect uniform square ratios like album art covers */
 .card-thumb-wrap {
   width: 100%;
-  aspect-ratio: 16/9;
+  aspect-ratio: 1 / 1;
   border-radius: 6px;
   overflow: hidden;
-  margin-bottom: 10px;
+  margin-bottom: 12px;
   position: relative;
   background-color: #000;
 }
@@ -251,12 +273,16 @@ h1 {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  object-position: center;
 }
 
 .card-play-overlay {
   position: absolute;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.5);
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -269,40 +295,47 @@ h1 {
 }
 
 .card-play-overlay i {
-  font-size: 18px;
-  color: var(--txt-main);
+  color: #fff;
+  font-size: 24px;
+  background-color: var(--accent-primary);
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 12px rgba(255, 0, 85, 0.4);
+}
+
+.card-badge {
+  position: absolute;
+  top: 22px;
+  right: 22px;
+  background-color: rgba(0, 0, 0, 0.75);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--accent-primary);
+  font-size: 9px;
+  font-weight: 800;
+  padding: 3px 8px;
+  border-radius: 4px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
 }
 
 .track-card h4 {
   font-size: 13px;
   font-weight: 700;
+  margin-bottom: 6px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  margin-bottom: 6px;
 }
 
-.card-badge {
-  position: absolute;
-  top: 18px;
-  right: 18px;
-  background-color: var(--accent);
-  color: white;
-  font-size: 9px;
-  font-weight: 800;
-  padding: 2px 6px;
-  border-radius: 3px;
-  text-transform: uppercase;
-  z-index: 2;
-}
-
-/* --- Follow System UI Elements --- */
 .card-meta-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 6px;
-  margin-top: auto;
+  gap: 8px;
 }
 
 .card-meta-row p {
@@ -311,75 +344,125 @@ h1 {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  margin-bottom: 0 !important;
   flex: 1;
 }
 
-.btn-follow-toggle {
-  background: transparent;
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  color: var(--txt-dim);
-  font-size: 9px;
-  font-weight: 700;
-  padding: 3px 8px;
-  border-radius: 4px;
+/* ==========================================================================
+   7. CHANNEL SYSTEM & INTERACTION BUTTONS
+   ========================================================================== */
+.channel-card-item {
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 24px;
+  text-align: center;
   cursor: pointer;
   transition: all 0.2s ease;
-  white-space: nowrap;
 }
 
-.btn-follow-toggle:hover {
-  border-color: var(--accent);
-  color: var(--txt-main);
+.channel-card-item:hover {
+  background-color: var(--bg-card-hover);
+  transform: translateY(-4px);
 }
 
-.btn-follow-toggle.following-active {
-  background-color: rgba(0, 255, 204, 0.1);
-  border-color: var(--accent-drift);
-  color: var(--accent-drift);
-}
-
-/* --- Compact Media Player Deck Footer --- */
-.player-bar {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  width: 100vw;
-  height: var(--player-height);
-  background-color: var(--bg-surface);
-  border-top: 1px solid var(--border);
+.channel-avatar-placeholder {
+  width: 70px;
+  height: 70px;
+  border-radius: 50%;
+  background-color: rgba(255, 255, 255, 0.03);
+  border: 1px dashed var(--border-color);
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 0 24px;
-  z-index: 20;
+  justify-content: center;
+  margin: 0 auto 16px auto;
 }
 
-.now-playing {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  width: 30%;
+.channel-avatar-placeholder i {
+  font-size: 24px;
+  color: var(--txt-dim);
 }
 
-#player-thumb {
-  width: 44px;
-  height: 44px;
-  border-radius: 4px;
-  object-fit: cover;
-  border: 1px solid var(--border);
-}
-
-.track-info h4 {
-  font-size: 13px;
+.channel-card-item h3 {
+  font-size: 14px;
   font-weight: 700;
-  margin-bottom: 1px;
+  margin-bottom: 12px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.track-info p {
+.btn-follow-toggle {
+  background: none;
+  border: 1px solid var(--accent-primary);
+  color: var(--accent-primary);
+  padding: 4px 10px;
+  font-size: 10px;
+  font-weight: 700;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-follow-toggle:hover {
+  background-color: var(--accent-primary);
+  color: #fff;
+}
+
+.btn-follow-toggle.following-active {
+  background-color: rgba(255, 255, 255, 0.05);
+  border-color: var(--border-color);
+  color: var(--txt-dim);
+}
+
+.btn-follow-toggle.following-active:hover {
+  border-color: #ff3333;
+  color: #ff3333;
+  background-color: rgba(255, 51, 51, 0.05);
+}
+
+/* ==========================================================================
+   8. MASTER HARDWARE DECK AUDIO/VIDEO PLAYER
+   ========================================================================== */
+.master-hardware-deck {
+  grid-area: player;
+  background-color: var(--bg-player);
+  border-top: 1px solid var(--border-color);
+  display: grid;
+  grid-template-columns: 300px 1fr 300px;
+  align-items: center;
+  padding: 0 24px;
+  z-index: 20;
+}
+
+.deck-metadata-cluster {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  overflow: hidden;
+}
+
+.deck-metadata-cluster img {
+  width: 50px;
+  height: 50px;
+  border-radius: 4px;
+  object-fit: cover;
+  background-color: #000;
+}
+
+.deck-text-node {
+  overflow: hidden;
+}
+
+.deck-text-node h3 {
+  font-size: 13px;
+  font-weight: 700;
+  margin-bottom: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.deck-text-node p {
   font-size: 11px;
   color: var(--txt-dim);
   white-space: nowrap;
@@ -387,123 +470,136 @@ h1 {
   text-overflow: ellipsis;
 }
 
-.player-controls {
+.deck-timeline-core {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 6px;
-  width: 40%;
+  gap: 8px;
+  width: 100%;
+  max-width: 600px;
+  margin: 0 auto;
 }
 
-.buttons {
+.deck-controls-row {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 24px;
 }
 
-.ctrl-btn {
+.deck-btn {
   background: none;
   border: none;
   color: var(--txt-dim);
   font-size: 14px;
   cursor: pointer;
-  transition: color 0.2s ease;
+  transition: color 0.2s;
 }
 
-.ctrl-btn:hover {
+.deck-btn:hover {
   color: var(--txt-main);
 }
 
-.ctrl-btn.play-main {
-  width: 34px;
-  height: 34px;
-  border-radius: 50%;
+.deck-btn.playback-toggle-node {
   background-color: var(--txt-main);
-  color: var(--bg-base);
+  color: #000;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 12px;
-  transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  font-size: 13px;
 }
 
-.ctrl-btn.play-main:hover {
-  transform: scale(1.06);
-  color: var(--bg-base);
+.deck-btn.playback-toggle-node:hover {
+  transform: scale(1.05);
+  color: #000;
 }
 
-#player-like-btn.liked {
-  color: var(--accent);
+.deck-btn.liked i {
+  color: var(--accent-primary);
 }
 
-.timeline {
-  width: 100%;
+.progress-bar-container {
   display: flex;
   align-items: center;
+  gap: 12px;
+  width: 100%;
 }
 
 .progress-bar {
-  width: 100%;
-  height: 3px;
+  flex: 1;
+  height: 4px;
   background-color: rgba(255, 255, 255, 0.1);
   border-radius: 2px;
-  cursor: pointer;
   position: relative;
+  cursor: pointer;
 }
 
-.progress {
+.progress-bar:hover {
+  height: 6px;
+}
+
+.progress-filled {
+  width: 0%;
   height: 100%;
-  background-color: var(--accent);
-  border-radius: inherit;
-  position: relative;
+  background-color: var(--accent-primary);
+  border-radius: 2px;
+  position: absolute;
+  top: 0;
+  left: 0;
 }
 
-/* --- Shaking Overdrive Engine Keyframes --- */
-@keyframes driftShake {
-  0% { transform: translate(1px, 1px) rotate(0deg); }
-  100% { transform: translate(-1px, -1px) rotate(0.5deg); }
-}
-
-/* --- Channel Page View Layout Elements --- */
-.channel-card-item {
-  background-color: var(--bg-surface);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 24px 16px;
-  text-align: center;
-  cursor: pointer;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 12px;
-  transition: all 0.25s ease;
-}
-
-.channel-card-item:hover {
-  background-color: var(--bg-card-hover);
-  border-color: var(--accent);
-  transform: translateY(-3px);
-}
-
-.channel-avatar-placeholder {
-  width: 70px;
-  height: 70px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, var(--accent) 0%, #a10036 100%);
+.deck-utility-bundle {
   display: flex;
   align-items: center;
-  justify-content: center;
-  font-size: 24px;
-  color: white;
-  box-shadow: 0 8px 20px rgba(255, 0, 85, 0.2);
+  justify-content: flex-end;
+  gap: 16px;
 }
 
-.channel-card-item h3 {
-  font-size: 14px;
-  font-weight: 700;
-  color: var(--txt-main);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  width: 100%;
+/* ==========================================================================
+   9. OVERDRIVE DRIFT MODE SPECIAL EFFECTS
+   ========================================================================== */
+#yt-player-container {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  opacity: 0;
+  pointer-events: none;
+  width: 1px;
+  height: 1px;
+}
+
+.drift-active .track-card:hover {
+  border-color: var(--accent-drift);
+  box-shadow: 0 0 15px rgba(0, 255, 204, 0.2);
+}
+
+.drift-active .progress-filled {
+  background-color: var(--accent-drift);
+}
+
+.drift-active .sidebar .menu-item.active {
+  background: linear-gradient(90deg, var(--accent-drift) 0%, #00b38f 100%);
+  color: #000;
+}
+
+/* ==========================================================================
+   10. SCROLLBAR BRANDING CUSTOMIZATION
+   ========================================================================== */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg-app);
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
 }
