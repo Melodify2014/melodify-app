@@ -28,9 +28,9 @@ const mockDatabase = {
         { id: 'vA0A8X9xYSw', title: 'AUTOMOTIVE', artist: 'Phonk Killer', badge: 'COWBELL', status: 'Trending' }
     ],
     following: [
-        { id: 'dQw4w9WgXcQ', title: 'Cuz We\'re Playing...', artist: 'CG5', badge: 'FEED', status: 'Following' },
-        { id: 'XqgYj7nO9fM', title: 'smol qwel and tall...', artist: 'CG5', badge: 'FEED', status: 'Following' },
-        { id: 'L_LUpnjbP90', title: 'POPPY PLAYTIME...', artist: 'CG5', badge: 'FEED', status: 'Following' }
+        { id: 'dQw4w9WgXcQ', title: 'Cuz We\'re Playing...', artist: 'CG5', badge: 'CACHED', status: 'Following' },
+        { id: 'XqgYj7nO9fM', title: 'smol qwel and tall...', artist: 'CG5', badge: 'CACHED', status: 'Following' },
+        { id: 'L_LUpnjbP90', title: 'POPPY PLAYTIME...', artist: 'CG5', badge: 'CACHED', status: 'Following' }
     ],
     recent: [],
     liked: []
@@ -115,13 +115,12 @@ function renderWorkspaceView(viewKey, customData = null) {
         card.className = 'track-card';
         card.setAttribute('data-id', track.id);
         
-        // Generate high-resolution thumbnail link directly from YouTube video IDs
-        const imageUrl = track.img || `https://img.youtube.com/vi/${track.id}/maxresdefault.jpg`;
+        // Uses hqdefault image mapping directly to prevent 404 console errors on Render
+        const imageUrl = track.img || `https://img.youtube.com/vi/${track.id}/hqdefault.jpg`;
         
-        // Formatted to exactly match your layout elements and footer action row
         card.innerHTML = `
             <div class="card-thumb-wrap">
-                <img src="${imageUrl}" alt="${track.title}" onerror="this.src='https://img.youtube.com/vi/${track.id}/hqdefault.jpg'">
+                <img src="${imageUrl}" alt="${track.title}">
                 <div class="card-play-overlay">
                     <i class="fas fa-play"></i>
                 </div>
@@ -160,7 +159,7 @@ function executeTrackPlayback(track) {
 
     ytPlayer.loadVideoById(track.id);
 
-    // Apply background layout animations if executing Drift Phonk rules
+    // Dynamic ambiance toggle rules
     if (track.badge === 'DRIFT') {
         document.body.classList.add('drift-active');
     } else {
@@ -245,7 +244,7 @@ function handleSearchInput(query) {
         return;
     }
 
-    // Wait 500ms before sending a request to avoid reaching Google rate limits
+    // Debounce processing to optimize API quote spending
     searchTimeout = setTimeout(() => {
         fetchLiveYouTubeData(query);
     }, 500);
@@ -254,9 +253,8 @@ function handleSearchInput(query) {
 async function fetchLiveYouTubeData(query) {
     const heading = document.getElementById('feed-heading');
 
-    // If API key is unchanged, search locally instead
     if (!YT_DATA_API_KEY || YT_DATA_API_KEY.includes("YOUR_ACTUAL_YOUTUBE_API_KEY")) {
-        console.warn("API Key unconfigured. Falling back onto internal data engine.");
+        console.warn("API Key unconfigured. Falling back onto internal local database matching.");
         fallbackLocalSearch(query);
         return;
     }
@@ -277,7 +275,7 @@ async function fetchLiveYouTubeData(query) {
             artist: item.snippet.channelTitle,
             badge: 'YT',
             status: 'Live Result',
-            img: item.snippet.thumbnails.high ? item.snippet.thumbnails.high.url : item.snippet.thumbnails.medium.url
+            img: item.snippet.thumbnails.medium ? item.snippet.thumbnails.medium.url : `https://img.youtube.com/vi/${item.id.videoId}/hqdefault.jpg`
         }));
 
         heading.textContent = `Search Results for: "${query}"`;
