@@ -16,7 +16,7 @@ let state = {
   progressPercent: 0,
   likedTrackIds: [],
   recentTrackIds: [],
-  followedChannels: [] // Array format: { id: "CHANNEL_ID", title: "CHANNEL_TITLE" }
+  followedChannels: [] // Format: { id: "CHANNEL_ID", title: "CHANNEL_TITLE" }
 };
 
 // --- YouTube Embedded Player Instance ---
@@ -64,7 +64,8 @@ const nodes = {
   likeIcon: document.getElementById("like-icon"),
   playerProgress: document.getElementById("player-progress"),
   progressBarContainer: document.querySelector(".progress-bar"),
-  playerDriftBtn: document.getElementById("player-drift-btn")
+  playerDriftBtn: document.getElementById("player-drift-btn"),
+  btnBackChannels: document.getElementById("btn-back-channels") // Back button link
 };
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -78,6 +79,7 @@ function setupEventBindings() {
   if (nodes.navFollowing) nodes.navFollowing.addEventListener("click", () => switchView("following"));
   if (nodes.navRecent) nodes.navRecent.addEventListener("click", () => switchView("recent"));
   if (nodes.navLiked) nodes.navLiked.addEventListener("click", () => switchView("liked"));
+  if (nodes.btnBackChannels) nodes.btnBackChannels.addEventListener("click", () => switchView("following"));
 
   if (nodes.searchInput) {
     nodes.searchInput.addEventListener("keydown", (e) => {
@@ -97,7 +99,6 @@ function setupEventBindings() {
   if (nodes.playerDriftBtn) nodes.playerDriftBtn.addEventListener("click", toggleDriftOverdrive);
 }
 
-// --- Local Storage Management ---
 function loadLocalStorageCacheContext() {
   state.likedTrackIds = JSON.parse(localStorage.getItem(`liked_${state.currentUser}`)) || [];
   state.recentTrackIds = JSON.parse(localStorage.getItem(`recent_${state.currentUser}`)) || [];
@@ -107,6 +108,7 @@ function loadLocalStorageCacheContext() {
 // --- Core View Navigator Logic ---
 function switchView(targetView) {
   document.querySelectorAll(".sidebar .menu-item").forEach(btn => btn.classList.remove("active"));
+  if (nodes.btnBackChannels) nodes.btnBackChannels.style.display = "none"; 
   state.currentView = targetView;
 
   if (targetView === "home") {
@@ -114,7 +116,7 @@ function switchView(targetView) {
     searchYouTube(state.searchQuery);
   } else if (targetView === "following") {
     if (nodes.navFollowing) nodes.navFollowing.classList.add("active");
-    buildFollowingChannelsFeed();
+    renderFollowedChannelsDirectory();
   } else if (targetView === "recent") {
     if (nodes.navRecent) nodes.navRecent.classList.add("active");
     if (nodes.feedHeading) nodes.feedHeading.textContent = "Recently Played";
@@ -127,6 +129,79 @@ function switchView(targetView) {
     const historicalStorage = JSON.parse(localStorage.getItem(`history_objects_${state.currentUser}`)) || [];
     TRACKS_DATABASE = historicalStorage.filter(t => state.likedTrackIds.includes(t.id));
     renderTrackWorkspace();
+  }
+}
+
+// --- Render Followed Channels Directory Grid ---
+function renderFollowedChannelsDirectory() {
+  if (nodes.feedHeading) nodes.feedHeading.textContent = "Followed Creators";
+  if (!nodes.tracksGrid) return;
+  nodes.tracksGrid.innerHTML = "";
+
+  if (state.followedChannels.length === 0) {
+    nodes.tracksGrid.innerHTML = `
+      <div style="grid-column: 1/-1; text-align: center; color: var(--txt-dim); padding-top: 40px; font-size: 13px;">
+        You aren't following any channels yet! Search on Home and tap 'Follow' next to tracks.
+      </div>`;
+    return;
+  }
+
+  state.followedChannels.forEach(channel => {
+    const channelCard = document.createElement("div");
+    channelCard.className = "channel-card-item";
+    channelCard.innerHTML = `
+      <div class="channel-avatar-placeholder">
+        <i class="fa-solid fa-user-astronaut"></i>
+      </div>
+      <h3>${channel.title}</h3>
+      <button class="btn-follow-toggle following-active" style="font-size:10px;">View Channel</button>
+    `;
+    
+    channelCard.addEventListener("click", () => openSpecificChannelFeedPage(channel));
+    nodes.tracksGrid.appendChild(channelCard);
+  });
+}
+
+// --- Fetch & Open Dedicated Creator Feed Page ---
+async function openSpecificChannelFeedPage(channel) {
+  if (nodes.btnBackChannels) nodes.btnBackChannels.style.display = "block";
+  if (nodes.feedHeading) nodes.feedHeading.textContent = `${channel.title}'s Channel`;
+  
+  nodes.tracksGrid.innerHTML = `<div style="color:var(--txt-dim); padding: 20px;">Fetching channel catalogue streams...</div>`;
+
+  try {
+    // Request up to 30 available tracks from the selected channel target
+    const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=30&channelId=${channel.id}&type=video&order=date&key=${YOUTUBE_API_KEY}`;
+    const res = await fetch(url);
+    const data = await res.json();
+
+    if (data.error) {
+      nodes.tracksGrid.innerHTML = `<div style="color:red; padding:20px;">API Error: ${data.error.message}</div>`;
+      return;
+    }
+
+    TRACKS_DATABASE = data.items.map(item => ({
+      id: item.id.videoId,
+      channelId: channel.id,
+      title: item.snippet.title.replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, "&"),
+      producer: channel.title,
+      thumbnail: item.snippet.thumbnails.medium.url,
+      badge: "Cached"
+    }));
+
+    // AUTO-CACHE SYSTEM ACTION: Automatically commit ALL gathered tracks down into local history objects storage
+    const historicalStorage = JSON.parse(localStorage.getItem(`history_objects_${state.currentUser}`)) || [];
+    TRACKS_DATABASE.forEach(track => {
+      if (!historicalStorage.some(h => h.id === track.id)) {
+        historicalStorage.push(track);
+      }
+    });
+    localStorage.setItem(`history_objects_${state.currentUser}`, JSON.stringify(historicalStorage));
+
+    renderTrackWorkspace();
+
+  } catch (err) {
+    nodes.tracksGrid.innerHTML = `<div style="color:red; padding: 20px;">Failed to sync with channel data servers.</div>`;
   }
 }
 
@@ -154,14 +229,13 @@ async function searchYouTube(query) {
 
     TRACKS_DATABASE = data.items.map(item => ({
       id: item.id.videoId,
-      channelId: item.snippet.channelId, // Saved to pass to follow functions
+      channelId: item.snippet.channelId, 
       title: item.snippet.title.replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, "&"),
       producer: item.snippet.channelTitle,
       thumbnail: item.snippet.thumbnails.medium.url,
       badge: "YT"
     }));
 
-    // Save metadata back into historical container objects
     const historicalStorage = JSON.parse(localStorage.getItem(`history_objects_${state.currentUser}`)) || [];
     TRACKS_DATABASE.forEach(track => {
       if (!historicalStorage.some(h => h.id === track.id)) historicalStorage.push(track);
@@ -176,65 +250,21 @@ async function searchYouTube(query) {
   }
 }
 
-// --- Dynamic Following Engine Builder ---
-async function buildFollowingChannelsFeed() {
-  if (nodes.feedHeading) nodes.feedHeading.textContent = "Following Feed";
-  
-  if (state.followedChannels.length === 0) {
-    nodes.tracksGrid.innerHTML = `
-      <div style="grid-column: 1/-1; text-align: center; color: var(--txt-dim); padding-top: 40px; font-size: 13px;">
-        You aren't following any channels yet! Search on Home and tap 'Follow' next to creators.
-      </div>`;
-    return;
-  }
-
-  nodes.tracksGrid.innerHTML = `<div style="color:var(--txt-dim); padding: 20px;">Querying followed producers...</div>`;
-  let compiledTracks = [];
-
-  try {
-    // Query last 5 tracks for every channel followed
-    for (let channel of state.followedChannels) {
-      const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=5&channelId=${channel.id}&type=video&order=date&key=${YOUTUBE_API_KEY}`;
-      const res = await fetch(url);
-      const data = await res.json();
-      
-      if (data.items) {
-        const structuralTracks = data.items.map(item => ({
-          id: item.id.videoId,
-          channelId: channel.id,
-          title: item.snippet.title.replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, "&"),
-          producer: channel.title,
-          thumbnail: item.snippet.thumbnails.medium.url,
-          badge: "Feed"
-        }));
-        compiledTracks = compiledTracks.concat(structuralTracks);
-      }
-    }
-
-    TRACKS_DATABASE = compiledTracks;
-
-    // Cache to historical registry data logs
-    const historicalStorage = JSON.parse(localStorage.getItem(`history_objects_${state.currentUser}`)) || [];
-    TRACKS_DATABASE.forEach(track => {
-      if (!historicalStorage.some(h => h.id === track.id)) historicalStorage.push(track);
-    });
-    localStorage.setItem(`history_objects_${state.currentUser}`, JSON.stringify(historicalStorage));
-
-    renderTrackWorkspace();
-  } catch (err) {
-    nodes.tracksGrid.innerHTML = `<div style="color:red; padding: 20px;">Failed to compile followed channel feeds.</div>`;
-  }
-}
-
 // --- Render Core DOM View Structure Elements ---
 function renderTrackWorkspace() {
   if (!nodes.tracksGrid) return;
+  
+  // If we aren't in a channel view, clean up old references inside workspace
+  if (state.currentView !== "following" && nodes.btnBackChannels) {
+    nodes.btnBackChannels.style.display = "none";
+  }
+
   nodes.tracksGrid.innerHTML = "";
 
   if (TRACKS_DATABASE.length === 0) {
     nodes.tracksGrid.innerHTML = `
       <div style="grid-column: 1/-1; text-align: center; color: var(--txt-dim); padding-top: 40px; font-size: 13px;">
-        No tracks found inside this view channel dashboard.
+        No tracks found inside this view dashboard interface.
       </div>`;
     return;
   }
@@ -261,7 +291,6 @@ function renderTrackWorkspace() {
       </div>
     `;
 
-    // Stop card music launch event from stepping on follow toggles clicks
     card.querySelector(".btn-follow-toggle").addEventListener("click", (e) => {
       e.stopPropagation();
       toggleChannelFollowState(track.channelId, track.producer);
@@ -272,28 +301,25 @@ function renderTrackWorkspace() {
   });
 }
 
-// --- Toggle Follow System Mechanics Action ---
 function toggleChannelFollowState(channelId, channelTitle) {
   if (!channelId) return;
-
   const matchIndex = state.followedChannels.findIndex(c => c.id === channelId);
 
   if (matchIndex > -1) {
-    // Unfollow
     state.followedChannels.splice(matchIndex, 1);
+    localStorage.setItem(`followed_channels_${state.currentUser}`, JSON.stringify(state.followedChannels));
+    
+    // If we unfollow a channel while on the following page directory, refresh layout
+    if (state.currentView === "following" && nodes.btnBackChannels.style.display !== "block") {
+      renderFollowedChannelsDirectory();
+      return;
+    }
   } else {
-    // Follow
     state.followedChannels.push({ id: channelId, title: channelTitle });
+    localStorage.setItem(`followed_channels_${state.currentUser}`, JSON.stringify(state.followedChannels));
   }
 
-  localStorage.setItem(`followed_channels_${state.currentUser}`, JSON.stringify(state.followedChannels));
-  
-  // Re-render context views gracefully
-  if (state.currentView === "following") {
-    buildFollowingChannelsFeed();
-  } else {
-    renderTrackWorkspace();
-  }
+  renderTrackWorkspace();
 }
 
 // --- Live Audio Deck Controller Engine ---
