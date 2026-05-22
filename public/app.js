@@ -162,7 +162,7 @@ function renderFollowedChannelsDirectory() {
   });
 }
 
-// --- Fetch & Open Dedicated Creator Feed Page (Strictly Videos) ---
+// --- Fetch & Open Dedicated Creator Feed Page (Strictly Horizontal Videos) ---
 async function openSpecificChannelFeedPage(channel) {
   if (nodes.btnBackChannels) nodes.btnBackChannels.style.display = "block";
   if (nodes.feedHeading) nodes.feedHeading.textContent = `${channel.title}'s Videos`;
@@ -170,8 +170,8 @@ async function openSpecificChannelFeedPage(channel) {
   nodes.tracksGrid.innerHTML = `<div style="color:var(--txt-dim); padding: 20px;">Fetching video catalogue streams...</div>`;
 
   try {
-    // Strictly enforcing type=video parameters to block playlists/sub-channels
-    const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=30&channelId=${channel.id}&type=video&order=date&key=${YOUTUBE_API_KEY}`;
+    // Strictly enforcing type=video and videoEmbeddable=true parameters
+    const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=50&channelId=${channel.id}&type=video&videoEmbeddable=true&order=date&key=${YOUTUBE_API_KEY}`;
     const res = await fetch(url);
     const data = await res.json();
 
@@ -180,8 +180,12 @@ async function openSpecificChannelFeedPage(channel) {
       return;
     }
 
-    // Filter to double-check that every item explicitly has a videoId
-    const videoItems = data.items.filter(item => item.id && item.id.videoId);
+    // Filter to ensure things like shorts are minimized by checking descriptions or titles if necessary
+    const videoItems = data.items.filter(item => {
+      const isVideo = item.id && item.id.videoId;
+      const isShort = item.snippet.title.toLowerCase().includes("#shorts") || (item.snippet.description && item.snippet.description.toLowerCase().includes("#shorts"));
+      return isVideo && !isShort;
+    });
 
     TRACKS_DATABASE = videoItems.map(item => ({
       id: item.id.videoId,
@@ -192,7 +196,7 @@ async function openSpecificChannelFeedPage(channel) {
       badge: "Cached"
     }));
 
-    // AUTO-CACHE SYSTEM ACTION: Commit valid videos down into local history storage
+    // AUTO-CACHE SYSTEM ACTION: Commit all gathered items into local storage history cache
     const historicalStorage = JSON.parse(localStorage.getItem(`history_objects_${state.currentUser}`)) || [];
     TRACKS_DATABASE.forEach(track => {
       if (!historicalStorage.some(h => h.id === track.id)) {
@@ -208,7 +212,7 @@ async function openSpecificChannelFeedPage(channel) {
   }
 }
 
-// --- Live YouTube Network Fetch Operations (Strictly Videos) ---
+// --- Live YouTube Network Fetch Operations ---
 async function searchYouTube(query) {
   if (!YOUTUBE_API_KEY || YOUTUBE_API_KEY === 'YOUR_YOUTUBE_API_KEY_HERE') {
     nodes.tracksGrid.innerHTML = `<div style="color:red; padding: 20px;">Missing YouTube API Key on Line 2!</div>`;
@@ -221,8 +225,7 @@ async function searchYouTube(query) {
   nodes.tracksGrid.innerHTML = `<div style="color:var(--txt-dim); padding: 20px;">Fetching from YouTube...</div>`;
 
   try {
-    // Explicitly enforcing type=video parameters to drop loose channel blocks from matching queries
-    const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=18&q=${encodeURIComponent(query)}&type=video&key=${YOUTUBE_API_KEY}`;
+    const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=24&q=${encodeURIComponent(query)}&type=video&videoEmbeddable=true&key=${YOUTUBE_API_KEY}`;
     const response = await fetch(url);
     const data = await response.json();
 
@@ -231,8 +234,11 @@ async function searchYouTube(query) {
       return;
     }
 
-    // Verify all items are explicitly formatted as video files
-    const videoItems = data.items.filter(item => item.id && item.id.videoId);
+    const videoItems = data.items.filter(item => {
+      const isVideo = item.id && item.id.videoId;
+      const isShort = item.snippet.title.toLowerCase().includes("#shorts");
+      return isVideo && !isShort;
+    });
 
     TRACKS_DATABASE = videoItems.map(item => ({
       id: item.id.videoId,
@@ -270,7 +276,7 @@ function renderTrackWorkspace() {
   if (TRACKS_DATABASE.length === 0) {
     nodes.tracksGrid.innerHTML = `
       <div style="grid-column: 1/-1; text-align: center; color: var(--txt-dim); padding-top: 40px; font-size: 13px;">
-        No videos found inside this view dashboard interface.
+        No videos available inside this feed.
       </div>`;
     return;
   }
@@ -394,7 +400,6 @@ function scrubPlaybackTimeline(e) {
   }
 }
 
-// --- Toggle Track Like State ---
 function toggleTrackLikeState() {
   if (!state.currentTrack) return;
   const id = state.currentTrack.id;
@@ -421,7 +426,6 @@ function updateLikeButtonUIState() {
   }
 }
 
-// --- Toggle Drift Mode ---
 function toggleDriftOverdrive() {
   state.isDriftMode = !state.isDriftMode;
   if (state.isDriftMode) {
