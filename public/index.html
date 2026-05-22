@@ -1,230 +1,64 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Melodify - Classic</title>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <style>
-        :root {
-            --bg-base: #09090b;
-            --bg-panel: #141417;
-            --bg-card: #1c1c21;
-            --accent: #22c55e;
-            --text-main: #ffffff;
-            --text-dim: #a1a1aa;
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Melodify Player</title>
+    <link rel="stylesheet" href="/src/styles.css" />
+    <script type="importmap">
+      {
+        "imports": {
+          "lucide": "https://esm.sh/lucide@0.468.0?bundle"
         }
-
-        * { margin: 0; padding: 0; box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
-        
-        body { background-color: var(--bg-base); color: var(--text-main); display: flex; height: 100vh; overflow: hidden; }
-
-        /* Sidebar */
-        .sidebar { width: 240px; background-color: var(--bg-panel); padding: 24px; display: flex; flex-direction: column; border-right: 1px solid #27272a; }
-        .logo { font-size: 24px; font-weight: 800; letter-spacing: 2px; color: var(--accent); margin-bottom: 40px; }
-        .nav-link { display: flex; align-items: center; gap: 16px; padding: 12px 16px; color: var(--text-dim); text-decoration: none; border-radius: 8px; margin-bottom: 8px; cursor: pointer; transition: 0.2s; font-weight: 500; }
-        .nav-link:hover, .nav-link.active { background-color: rgba(255,255,255,0.05); color: var(--text-main); }
-        
-        /* Main Content */
-        .main-content { flex: 1; display: flex; flex-direction: column; padding-bottom: 90px; overflow-y: auto; }
-        .topbar { padding: 24px 40px; display: flex; justify-content: space-between; align-items: center; background: rgba(9, 9, 11, 0.9); backdrop-filter: blur(10px); position: sticky; top: 0; z-index: 10; }
-        .search-bar { background: var(--bg-card); border: 1px solid #27272a; border-radius: 20px; padding: 10px 20px; width: 300px; color: white; outline: none; }
-        
-        /* User Profile & Auth */
-        .user-controls { display: flex; align-items: center; gap: 16px; }
-        .user-display { font-size: 14px; color: var(--text-dim); font-weight: 500; }
-        .logout-btn { background: #ef4444; color: white; border: none; padding: 8px 16px; border-radius: 20px; cursor: pointer; font-size: 12px; font-weight: bold; display: none; }
-        
-        /* Grid */
-        .content-area { padding: 0 40px; }
-        .section-title { font-size: 24px; font-weight: 700; margin-bottom: 24px; margin-top: 20px; }
-        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 24px; }
-        
-        .card { background-color: var(--bg-card); padding: 16px; border-radius: 12px; cursor: pointer; transition: 0.3s; }
-        .card:hover { background-color: #27272a; transform: translateY(-4px); }
-        .card img { width: 100%; aspect-ratio: 1; border-radius: 8px; object-fit: cover; margin-bottom: 16px; }
-        .card-title { font-size: 14px; font-weight: 700; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .card-producer { font-size: 12px; color: var(--text-dim); }
-
-        /* Player Bar */
-        .player-bar { position: fixed; bottom: 0; left: 0; right: 0; height: 90px; background-color: var(--bg-panel); border-top: 1px solid #27272a; display: flex; align-items: center; justify-content: space-between; padding: 0 24px; z-index: 50; }
-        .now-playing { display: flex; align-items: center; gap: 16px; width: 30%; }
-        .now-playing img { width: 56px; height: 56px; border-radius: 8px; object-fit: cover; }
-        .player-controls { display: flex; align-items: center; gap: 24px; }
-        .play-btn { width: 40px; height: 40px; border-radius: 50%; background: white; color: black; display: flex; align-items: center; justify-content: center; font-size: 16px; cursor: pointer; border: none; transition: 0.2s; }
-        .play-btn:hover { transform: scale(1.05); }
-        
-        /* Login Modal */
-        .auth-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); display: flex; justify-content: center; align-items: center; z-index: 100; }
-        .auth-box { background: var(--bg-panel); padding: 40px; border-radius: 16px; width: 350px; text-align: center; border: 1px solid #27272a; }
-        .auth-box h2 { margin-bottom: 24px; color: white; }
-        .auth-input { width: 100%; padding: 12px; margin-bottom: 16px; background: var(--bg-base); border: 1px solid #27272a; border-radius: 8px; color: white; outline: none; }
-        .auth-btn { width: 100%; padding: 12px; background: var(--accent); color: #000; font-weight: bold; border: none; border-radius: 8px; cursor: pointer; }
-    </style>
-</head>
-<body>
-
-    <div id="auth-modal" class="auth-overlay">
-        <div class="auth-box">
-            <h2>Welcome to Melodify</h2>
-            <input type="text" id="username-input" class="auth-input" placeholder="Enter a username...">
-            <button onclick="login()" class="auth-btn">Log In</button>
-        </div>
-    </div>
-
-    <div class="sidebar">
-        <div class="logo">MELODIFY</div>
-        <div class="nav-link active"><i class="fa-solid fa-house"></i> Home</div>
-        <div class="nav-link"><i class="fa-solid fa-heart"></i> Liked Tracks</div>
-        <div class="nav-link"><i class="fa-solid fa-user-group"></i> Following</div>
-    </div>
-
-    <div class="main-content">
-        <div class="topbar">
-            <input type="text" class="search-bar" placeholder="Search tracks...">
-            <div class="user-controls">
-                <span id="user-display" class="user-display">Not logged in</span>
-                <button id="logout-btn" class="logout-btn" onclick="logout()">Logout</button>
-            </div>
-        </div>
-
-        <div class="content-area">
-            <h2 class="section-title">Classic Tracks</h2>
-            <div id="tracks-grid" class="grid">
-                </div>
-        </div>
-    </div>
-
-    <div class="player-bar">
-        <div class="now-playing">
-            <img id="player-img" src="https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?q=80&w=100" alt="Cover">
-            <div>
-                <div id="player-title" style="font-weight: 700; font-size: 14px;">Select a track</div>
-                <div id="player-producer" style="font-size: 12px; color: var(--text-dim); margin-top: 4px;">Unknown Producer</div>
-            </div>
-        </div>
-        <div class="player-controls">
-            <button class="play-btn" onclick="togglePlay()"><i id="play-icon" class="fa-solid fa-play"></i></button>
-        </div>
-        <div style="width: 30%;"></div>
-    </div>
-
-    <div id="youtube-player" style="display: none;"></div>
-    <script src="https://www.youtube.com/iframe_api"></script>
-
-    <script>
-        // --- 1. HARDCODED DATA (No database needed!) ---
-        const hardcodedTracks = [
-            { id: '1', ytId: 'o2f2tXyO1P8', title: 'Sleep Well', producer: 'CG5', img: 'https://img.youtube.com/vi/o2f2tXyO1P8/hqdefault.jpg' },
-            { id: '2', ytId: 'Q2TzQ_v9x5U', title: 'Superstitious Foundation', producer: 'CG5', img: 'https://img.youtube.com/vi/Q2TzQ_v9x5U/hqdefault.jpg' },
-            { id: '3', ytId: 'wVnB-r0w3Sg', title: 'THX', producer: 'CG5', img: 'https://img.youtube.com/vi/wVnB-r0w3Sg/hqdefault.jpg' },
-            { id: '4', ytId: 'I1188GO4p1E', title: 'GIVE A LITTLE', producer: 'LeGrand x CG5', img: 'https://img.youtube.com/vi/I1188GO4p1E/hqdefault.jpg' },
-            { id: '5', ytId: 'UprcpdwuwCg', title: 'METAMORPHOSIS', producer: 'INTERWORLD', img: 'https://img.youtube.com/vi/UprcpdwuwCg/hqdefault.jpg' }
-        ];
-
-        // --- 2. AUTHENTICATION (Using Browser LocalStorage) ---
-        const authModal = document.getElementById('auth-modal');
-        const userDisplay = document.getElementById('user-display');
-        const logoutBtn = document.getElementById('logout-btn');
-
-        function checkLoginStatus() {
-            const savedUser = localStorage.getItem('melodify_user');
-            if (savedUser) {
-                authModal.style.display = 'none';
-                userDisplay.textContent = `Connected: ${savedUser}`;
-                logoutBtn.style.display = 'block';
-            } else {
-                authModal.style.display = 'flex';
-                userDisplay.textContent = 'Not logged in';
-                logoutBtn.style.display = 'none';
-            }
-        }
-
-        function login() {
-            const username = document.getElementById('username-input').value.trim();
-            if (username) {
-                localStorage.setItem('melodify_user', username);
-                checkLoginStatus();
-            }
-        }
-
-        function logout() {
-            localStorage.removeItem('melodify_user');
-            checkLoginStatus();
-            pauseTrack();
-        }
-
-        // --- 3. UI RENDERING ---
-        function renderTracks() {
-            const grid = document.getElementById('tracks-grid');
-            grid.innerHTML = '';
-            
-            hardcodedTracks.forEach(track => {
-                const card = document.createElement('div');
-                card.className = 'card';
-                card.innerHTML = `
-                    <img src="${track.img}" alt="Cover">
-                    <div class="card-title">${track.title}</div>
-                    <div class="card-producer">${track.producer}</div>
-                `;
-                card.onclick = () => loadTrack(track);
-                grid.appendChild(card);
-            });
-        }
-
-        // --- 4. AUDIO PLAYER LOGIC ---
-        let ytPlayer;
-        let isPlaying = false;
-
-        function onYouTubeIframeAPIReady() {
-            ytPlayer = new YT.Player('youtube-player', {
-                height: '0', width: '0',
-                playerVars: { 'autoplay': 0, 'controls': 0 },
-                events: { 'onStateChange': onPlayerStateChange }
-            });
-        }
-
-        function onPlayerStateChange(event) {
-            if (event.data === YT.PlayerState.ENDED) {
-                isPlaying = false;
-                document.getElementById('play-icon').className = 'fa-solid fa-play';
-            }
-        }
-
-        function loadTrack(track) {
-            if (!ytPlayer || !ytPlayer.loadVideoById) return;
-            
-            // Update UI
-            document.getElementById('player-img').src = track.img;
-            document.getElementById('player-title').textContent = track.title;
-            document.getElementById('player-producer').textContent = track.producer;
-            
-            // Play audio
-            ytPlayer.loadVideoById(track.ytId);
-            isPlaying = true;
-            document.getElementById('play-icon').className = 'fa-solid fa-pause';
-        }
-
-        function togglePlay() {
-            if (!ytPlayer) return;
-            if (isPlaying) {
-                pauseTrack();
-            } else {
-                ytPlayer.playVideo();
-                isPlaying = true;
-                document.getElementById('play-icon').className = 'fa-solid fa-pause';
-            }
-        }
-
-        function pauseTrack() {
-            if(ytPlayer && ytPlayer.pauseVideo) ytPlayer.pauseVideo();
-            isPlaying = false;
-            document.getElementById('play-icon').className = 'fa-solid fa-play';
-        }
-
-        // --- 5. INITIALIZE ---
-        checkLoginStatus();
-        renderTracks();
+      }
     </script>
-</body>
+  </head>
+  <body>
+    <div id="app">
+      <div class="player-hud">
+        <header>
+          <p>Now Playing</p>
+          <span class="brand">Melodify</span>
+        </header>
+
+        <div class="track-info">
+          <h1 id="trackTitle">Ambient Pulse</h1>
+          <p id="trackArtist">Greenhouse Echoes</p>
+        </div>
+
+        <div class="control-group">
+          <div class="status-row">
+            <span id="currentTime">0:00</span>
+            <span id="durationTime">0:00</span>
+          </div>
+          <div class="meter blue" id="progressContainer">
+            <span id="progressBar"></span>
+          </div>
+        </div>
+
+        <div class="action-grid">
+          <button id="prevBtn" title="Previous">
+            <i data-lucide="skip-back"></i>
+          </button>
+          <button id="playBtn" class="primary" title="Play/Pause">
+            <i data-lucide="play" id="playIcon"></i>
+          </button>
+          <button id="nextBtn" title="Next">
+            <i data-lucide="skip-forward"></i>
+          </button>
+          <button id="muteBtn" title="Mute/Unmute">
+            <i data-lucide="volume-2" id="muteIcon"></i>
+          </button>
+        </div>
+
+        <div class="control-group" style="margin-top: 18px;">
+          <label>
+            Volume
+            <input type="range" id="volumeRange" min="0" max="1" step="0.01" value="0.7" />
+          </label>
+        </div>
+      </div>
+    </div>
+    <script type="module" src="/src/main.js"></script>
+  </body>
 </html>
