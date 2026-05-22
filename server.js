@@ -1,6 +1,6 @@
 /**
  * Melodify Ultimate Production Backend Gateway Server
- * Engineered for True Infinite Channel Scraping, Pagination, & Dynamic Producer Mapping
+ * Engineered with Advanced Content Delivery Safety & Anti-404 Validation
  */
 const express = require('express');
 const mongoose = require('mongoose');
@@ -41,7 +41,7 @@ const TrackSchema = new mongoose.Schema({
     youtubeId: { type: String, required: true, unique: true },
     type: { type: String, default: 'music' },
     tags: [{ type: String }]
-}, { timestamps: true }); // Tracks when records enter our cache matrix
+}, { timestamps: true });
 
 const User = mongoose.model('User', UserSchema);
 const Track = mongoose.model('Track', TrackSchema);
@@ -49,6 +49,28 @@ const Track = mongoose.model('Track', TrackSchema);
 mongoose.connect(MONGO_URI)
     .then(() => console.log('Connected to MongoDB Successfully.'))
     .catch(err => console.error('Database Connection Error:', err));
+
+/**
+ * ==========================================================================
+ * UTILITY FUNCTIONS: THUMBNAIL VALIDATION
+ * ==========================================================================
+ * Catch and rewrite broken image configurations to prevent breaking frontend layouts.
+ */
+const getSecureThumbnail = (video) => {
+    if (!video.videoId) {
+        return 'https://images.unsplash.com/photo-1614680376593-902f74fa0d41?q=80&w=500&auto=format&fit=crop'; 
+    }
+    
+    // Check if the scraper properties are missing or corrupted
+    const rawImage = video.image || video.thumbnail || video.hqdefault;
+    if (!rawImage || rawImage.includes('pixel') || rawImage.includes('blank')) {
+        // Fallback to standard medium quality player backgrounds (virtually never 404s)
+        return `https://img.youtube.com/vi/${video.videoId}/mqdefault.jpg`; 
+    }
+    
+    // If it's explicitly passing an unverified hqdefault string, clean it up to mqdefault for stability
+    return rawImage.replace('hqdefault.jpg', 'mqdefault.jpg');
+};
 
 /**
  * ==========================================================================
@@ -132,7 +154,6 @@ app.get('/api/tracks', async (req, res) => {
                     const baseFeed = await ytSearch({ channelId: matchedChannel.id });
                     if (baseFeed && baseFeed.videos) compiledVideos = [...baseFeed.videos];
 
-                    // Process loops concurrently using Promise.all to prevent locking the main thread
                     const searchPromises = deepScrapePhrases.map(phrase => ytSearch({ query: phrase }));
                     const searchResults = await Promise.all(searchPromises);
 
@@ -146,22 +167,18 @@ app.get('/api/tracks', async (req, res) => {
                     compiledVideos.forEach(v => { uniqueVideoMap[v.videoId] = v; });
                     const finalScrapedPool = Object.values(uniqueVideoMap).filter(v => (v.seconds || 0) > 40);
 
-                    // Perform a high-speed bulk writing execution to MongoDB
                     if (finalScrapedPool.length > 0) {
                         const bulkOperations = finalScrapedPool.map(video => {
                             const cleanTitle = video.title.replace(/[\(\[].*?[\)\]]/g, '').trim();
                             const isDriftPhonk = /drift|phonk|rave|lxst|dxrk/i.test(video.title);
                             
-                            // Use fallback hqdefault mapping to eliminate any potential 404 network assets
-                            const thumbUrl = video.image || video.thumbnail || `https://img.youtube.com/vi/${video.videoId}/hqdefault.jpg`;
-
                             return {
                                 updateOne: {
                                     filter: { youtubeId: video.videoId },
                                     update: {
                                         title: cleanTitle,
                                         producer: video.author.name || producerTarget, 
-                                        thumbnail: thumbUrl,
+                                        thumbnail: getSecureThumbnail(video),
                                         youtubeId: video.videoId,
                                         type: 'music',
                                         tags: isDriftPhonk ? ['drift', 'phonk'] : ['music']
@@ -174,7 +191,7 @@ app.get('/api/tracks', async (req, res) => {
                     }
                 }
             } catch (err) { 
-                console.error("Deep cache parsing system bypassed gracefully:", err); 
+                console.error("Deep pipeline tracking execution error:", err); 
             }
         } else if (queryToken && queryToken.trim().length > 0) {
             try {
@@ -185,7 +202,6 @@ app.get('/api/tracks', async (req, res) => {
                     if (poolSlice.length > 0) {
                         const bulkOperations = poolSlice.map(video => {
                             const cleanTitle = video.title.replace(/[\(\[].*?[\)\]]/g, '').trim();
-                            const thumbUrl = video.image || video.thumbnail || `https://img.youtube.com/vi/${video.videoId}/hqdefault.jpg`;
                             
                             return {
                                 updateOne: {
@@ -193,7 +209,7 @@ app.get('/api/tracks', async (req, res) => {
                                     update: {
                                         title: cleanTitle,
                                         producer: video.author.name || 'Unknown Producer',
-                                        thumbnail: thumbUrl,
+                                        thumbnail: getSecureThumbnail(video),
                                         youtubeId: video.videoId,
                                         type: 'music',
                                         tags: ['music']
@@ -205,10 +221,10 @@ app.get('/api/tracks', async (req, res) => {
                         await Track.bulkWrite(bulkOperations);
                     }
                 }
-            } catch (e) { console.error("Standard search tracking error:", e); }
+            } catch (e) { console.error("Standard system engine tracking error:", e); }
         }
 
-        // DATABASE LOOKUP FALLBACK CORE
+        // DATABASE GATEWAY MATRICES
         let queryCondition = {};
         if (producerTarget) {
             queryCondition = { producer: { $regex: producerTarget, $options: 'i' } };
