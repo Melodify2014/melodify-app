@@ -3,7 +3,6 @@
  * YOUTUBE DATA API CONFIGURATION
  * ==========================================================================
  * Paste your Google Cloud Console API key inside the quotes below.
- * Example: const YT_DATA_API_KEY = "AIzaSyA1B2C3D4...";
  */
 const YT_DATA_API_KEY = "AIzaSyANndBije8n2js5wtfLb05SDW91IGsiqOg";
 
@@ -18,20 +17,20 @@ let currentTrackList = [];
 let currentTrackIndex = -1;
 let currentView = 'home'; // Options: home, following, recent, liked
 
-// Default feed data used when search is empty
+// Default local collections matching your UI screen setups
 const mockDatabase = {
     home: [
-        { id: 'tN8w7g0-Nsw', title: 'METAMORPHOSIS', artist: 'INTERWORLD', badge: 'CLASSIC', img: 'https://img.youtube.com/vi/tN8w7g0-Nsw/maxresdefault.jpg' },
-        { id: 'fN_3Zg_3Ew0', title: 'MURDER IN MY MIND', artist: 'KORDHELL', badge: 'DRIFT', img: 'https://img.youtube.com/vi/fN_3Zg_3Ew0/maxresdefault.jpg' },
-        { id: '1-xGerv5FOk', title: 'RAVE', artist: 'Dxrk', badge: 'POPULAR', img: 'https://img.youtube.com/vi/1-xGerv5FOk/maxresdefault.jpg' },
-        { id: 'Wv2rLZmb_8g', title: 'CLOSE EYES', artist: 'DVRST', badge: 'ATMOSPHERIC', img: 'https://img.youtube.com/vi/Wv2rLZmb_8g/maxresdefault.jpg' },
-        { id: 'H6YvS6O0m_o', title: 'GIGA CHAD THEME', artist: 'g3ox_em', badge: 'MEME', img: 'https://img.youtube.com/vi/H6YvS6O0m_o/maxresdefault.jpg' },
-        { id: 'vA0A8X9xYSw', title: 'AUTOMOTIVE', artist: 'Phonk Killer', badge: 'COWBELL', img: 'https://img.youtube.com/vi/vA0A8X9xYSw/maxresdefault.jpg' }
+        { id: 'tN8w7g0-Nsw', title: 'METAMORPHOSIS', artist: 'INTERWORLD', badge: 'CLASSIC', status: 'Trending' },
+        { id: 'fN_3Zg_3Ew0', title: 'MURDER IN MY MIND', artist: 'KORDHELL', badge: 'DRIFT', status: 'Trending' },
+        { id: '1-xGerv5FOk', title: 'RAVE', artist: 'Dxrk', badge: 'POPULAR', status: 'Trending' },
+        { id: 'Wv2rLZmb_8g', title: 'CLOSE EYES', artist: 'DVRST', badge: 'ATMOSPHERIC', status: 'Trending' },
+        { id: 'H6YvS6O0m_o', title: 'GIGA CHAD THEME', artist: 'g3ox_em', badge: 'MEME', status: 'Trending' },
+        { id: 'vA0A8X9xYSw', title: 'AUTOMOTIVE', artist: 'Phonk Killer', badge: 'COWBELL', status: 'Trending' }
     ],
     following: [
-        { id: 'dQw4w9WgXcQ', title: 'Cuz We\'re Playing...', artist: 'CG5', badge: 'FEED', img: 'https://img.youtube.com/vi/dQw4w9WgXcQ/maxresdefault.jpg' },
-        { id: 'XqgYj7nO9fM', title: 'smol qwel and tall...', artist: 'CG5', badge: 'FEED', img: 'https://img.youtube.com/vi/XqgYj7nO9fM/maxresdefault.jpg' },
-        { id: 'L_LUpnjbP90', title: 'POPPY PLAYTIME...', artist: 'CG5', badge: 'FEED', img: 'https://img.youtube.com/vi/L_LUpnjbP90/maxresdefault.jpg' }
+        { id: 'dQw4w9WgXcQ', title: 'Cuz We\'re Playing...', artist: 'CG5', badge: 'FEED', status: 'Following' },
+        { id: 'XqgYj7nO9fM', title: 'smol qwel and tall...', artist: 'CG5', badge: 'FEED', status: 'Following' },
+        { id: 'L_LUpnjbP90', title: 'POPPY PLAYTIME...', artist: 'CG5', badge: 'FEED', status: 'Following' }
     ],
     recent: [],
     liked: []
@@ -92,6 +91,7 @@ function renderWorkspaceView(viewKey, customData = null) {
     const mainGrid = document.getElementById('main-grid');
     const heading = document.getElementById('feed-heading');
     
+    // Manage active state of sidebar items
     document.querySelectorAll('.sidebar .menu-item').forEach(btn => btn.classList.remove('active'));
     const activeNav = document.getElementById(`nav-${viewKey}`);
     if (activeNav) activeNav.classList.add('active');
@@ -104,7 +104,7 @@ function renderWorkspaceView(viewKey, customData = null) {
     mainGrid.innerHTML = '';
 
     if (dataToRender.length === 0) {
-        mainGrid.innerHTML = `<div style="grid-column: 1/-1; text-align: center; color: var(--txt-dim); padding-top: 40px;">No tracks found in this category.</div>`;
+        mainGrid.innerHTML = `<div style="grid-column: 1/-1; text-align: center; color: var(--txt-dim); padding-top: 40px;">No tracks found here.</div>`;
         return;
     }
 
@@ -115,17 +115,22 @@ function renderWorkspaceView(viewKey, customData = null) {
         card.className = 'track-card';
         card.setAttribute('data-id', track.id);
         
+        // Generate high-resolution thumbnail link directly from YouTube video IDs
+        const imageUrl = track.img || `https://img.youtube.com/vi/${track.id}/maxresdefault.jpg`;
+        
+        // Formatted to exactly match your layout elements and footer action row
         card.innerHTML = `
             <div class="card-thumb-wrap">
-                <img src="${track.img}" alt="${track.title}" onerror="this.src='https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?q=80&w=400'">
+                <img src="${imageUrl}" alt="${track.title}" onerror="this.src='https://img.youtube.com/vi/${track.id}/hqdefault.jpg'">
                 <div class="card-play-overlay">
                     <i class="fas fa-play"></i>
                 </div>
-                <span class="card-badge">${track.badge || 'TRACK'}</span>
+                <span class="card-badge">${track.badge || 'LIVE'}</span>
             </div>
             <h4>${track.title}</h4>
             <div class="card-meta-row">
                 <p>${track.artist}</p>
+                <span class="status-action-tag">${track.status || 'Following'}</span>
             </div>
         `;
 
@@ -150,11 +155,12 @@ function executeTrackPlayback(track) {
     document.getElementById('player-artist').textContent = track.artist;
     
     const thumb = document.getElementById('player-thumb');
-    thumb.src = track.img;
+    thumb.src = track.img || `https://img.youtube.com/vi/${track.id}/hqdefault.jpg`;
     thumb.style.opacity = '1';
 
     ytPlayer.loadVideoById(track.id);
 
+    // Apply background layout animations if executing Drift Phonk rules
     if (track.badge === 'DRIFT') {
         document.body.classList.add('drift-active');
     } else {
@@ -163,7 +169,7 @@ function executeTrackPlayback(track) {
 
     if (!mockDatabase.recent.some(t => t.id === track.id)) {
         mockDatabase.recent.unshift(track);
-        if (mockDatabase.recent.length > 20) mockDatabase.recent.pop();
+        if (mockDatabase.recent.length > 30) mockDatabase.recent.pop();
     }
 }
 
@@ -226,13 +232,12 @@ function handleScrubNavigation(event) {
 
 /**
  * ==========================================================================
- * 6. LIVE YOUTUBE SERVER SEARCH ENGINE (Requires Key Restriction)
+ * 6. LIVE YOUTUBE SERVER SEARCH ENGINE
  * ==========================================================================
  */
 let searchTimeout = null;
 
 function handleSearchInput(query) {
-    // Clear previous timeout to debounce network requests while typing
     clearTimeout(searchTimeout);
     
     if (!query.toLowerCase().trim()) {
@@ -240,7 +245,7 @@ function handleSearchInput(query) {
         return;
     }
 
-    // Wait 500ms after user stops typing before calling Google APIs
+    // Wait 500ms before sending a request to avoid reaching Google rate limits
     searchTimeout = setTimeout(() => {
         fetchLiveYouTubeData(query);
     }, 500);
@@ -249,9 +254,9 @@ function handleSearchInput(query) {
 async function fetchLiveYouTubeData(query) {
     const heading = document.getElementById('feed-heading');
 
-    // Fallback back to local mocking system if API key placeholder wasn't swapped out
+    // If API key is unchanged, search locally instead
     if (!YT_DATA_API_KEY || YT_DATA_API_KEY.includes("YOUR_ACTUAL_YOUTUBE_API_KEY")) {
-        console.warn("API key missing. Falling back onto offline client-side query matching.");
+        console.warn("API Key unconfigured. Falling back onto internal data engine.");
         fallbackLocalSearch(query);
         return;
     }
@@ -259,19 +264,19 @@ async function fetchLiveYouTubeData(query) {
     heading.textContent = `Searching YouTube for "${query}"...`;
 
     try {
-        const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=12&q=${encodeURIComponent(query)}&type=video&key=${YT_DATA_API_KEY}`;
+        const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=18&q=${encodeURIComponent(query)}&type=video&key=${YT_DATA_API_KEY}`;
         const response = await fetch(url);
         
-        if (!response.ok) throw new Error(`Google Server returned status: ${response.status}`);
+        if (!response.ok) throw new Error(`Google Server Status: ${response.status}`);
         
         const data = await response.json();
         
-        // Remap Google API structure into layout-compatible array tracks
         const liveTracks = data.items.map(item => ({
             id: item.id.videoId,
             title: item.snippet.title,
             artist: item.snippet.channelTitle,
-            badge: 'LIVE',
+            badge: 'YT',
+            status: 'Live Result',
             img: item.snippet.thumbnails.high ? item.snippet.thumbnails.high.url : item.snippet.thumbnails.medium.url
         }));
 
@@ -279,8 +284,8 @@ async function fetchLiveYouTubeData(query) {
         renderWorkspaceView(currentView, liveTracks);
 
     } catch (error) {
-        console.error("YouTube Live Data Engine Failure:", error);
-        heading.textContent = `Error searching live servers. Showing local matches.`;
+        console.error("YouTube Live Search Engine Error:", error);
+        heading.textContent = `Network Error. Showing local database matches.`;
         fallbackLocalSearch(query);
     }
 }
@@ -304,7 +309,7 @@ function fallbackLocalSearch(query) {
  * ==========================================================================
  */
 document.addEventListener('DOMContentLoaded', () => {
-    // Nav Click Event Mapping
+    // Navigation Menu Filters
     document.getElementById('nav-home').addEventListener('click', () => renderWorkspaceView('home'));
     document.getElementById('nav-following').addEventListener('click', () => renderWorkspaceView('following'));
     document.getElementById('nav-recent').addEventListener('click', () => renderWorkspaceView('recent'));
@@ -318,11 +323,11 @@ document.addEventListener('DOMContentLoaded', () => {
     // Timeline Seek Handler
     document.getElementById('progress-bar').addEventListener('click', handleScrubNavigation);
 
-    // Live Server Search Listener
+    // Live Search Box Input Event
     document.getElementById('search-input').addEventListener('input', (e) => {
         handleSearchInput(e.target.value);
     });
 
-    // Boot system
+    // Boot view setup sequence
     renderWorkspaceView('home');
 });
