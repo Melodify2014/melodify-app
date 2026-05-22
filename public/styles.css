@@ -258,7 +258,6 @@ body {
   box-shadow: 0 12px 24px rgba(0, 0, 0, 0.3);
 }
 
-/* FIX: Forces perfect uniform square ratios like album art covers */
 .card-thumb-wrap {
   width: 100%;
   aspect-ratio: 1 / 1;
@@ -329,6 +328,7 @@ body {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  color: var(--txt-main);
 }
 
 .card-meta-row {
