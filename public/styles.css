@@ -519,4 +519,40 @@ h1 {
 @keyframes driftShake {
   0% { transform: translate(1px, 1px) rotate(0deg); }
   100% { transform: translate(-1px, -1px) rotate(0.5deg); }
+/* --- Follow System UI Additions --- */
+.card-meta-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+  margin-top: 2px;
+}
+
+.card-meta-row p {
+  margin-bottom: 0 !important;
+  flex: 1;
+}
+
+.btn-follow-toggle {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: var(--txt-dim);
+  font-size: 9px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.btn-follow-toggle:hover {
+  border-color: var(--accent);
+  color: var(--txt-main);
+}
+
+.btn-follow-toggle.following-active {
+  background-color: rgba(0, 255, 204, 0.1);
+  border-color: var(--accent-drift);
+  color: var(--accent-drift);
 }
