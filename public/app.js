@@ -109,51 +109,57 @@ document.addEventListener("DOMContentLoaded", () => {
 
 function setupEventBindings() {
   // Sidebar Navigators
-  nodes.navHome.addEventListener("click", () => switchView("home", nodes.navHome));
-  nodes.navFollowing.addEventListener("click", () => switchView("following", nodes.navFollowing));
-  nodes.navRecent.addEventListener("click", () => switchView("recent", nodes.navRecent));
-  nodes.navLiked.addEventListener("click", () => switchView("liked", nodes.navLiked));
+  if (nodes.navHome) nodes.navHome.addEventListener("click", () => switchView("home", nodes.navHome));
+  if (nodes.navFollowing) nodes.navFollowing.addEventListener("click", () => switchView("following", nodes.navFollowing));
+  if (nodes.navRecent) nodes.navRecent.addEventListener("click", () => switchView("recent", nodes.navRecent));
+  if (nodes.navLiked) nodes.navLiked.addEventListener("click", () => switchView("liked", nodes.navLiked));
 
   // Category Selector Tabs
-  nodes.filterAll.addEventListener("click", () => setCategoryFilter("all"));
-  nodes.filterMusic.addEventListener("click", () => setCategoryFilter("music"));
+  if (nodes.filterAll) nodes.filterAll.addEventListener("click", () => setCategoryFilter("all"));
+  if (nodes.filterMusic) nodes.filterMusic.addEventListener("click", () => setCategoryFilter("music"));
 
   // Search Input Query Actions
-  nodes.searchInput.addEventListener("input", (e) => {
-    state.searchQuery = e.target.value.toLowerCase();
-    renderTrackWorkspace();
-  });
+  if (nodes.searchInput) {
+    nodes.searchInput.addEventListener("input", (e) => {
+      state.searchQuery = e.target.value.toLowerCase();
+      renderTrackWorkspace();
+    });
+  }
 
   // Media Playback Deck Group
-  nodes.playerPlayBtn.addEventListener("click", togglePlaybackState);
-  nodes.playerLikeBtn.addEventListener("click", toggleCurrentTrackLike);
-  nodes.playerDriftBtn.addEventListener("click", toggleDriftOverdrive);
+  if (nodes.playerPlayBtn) nodes.playerPlayBtn.addEventListener("click", togglePlaybackState);
+  if (nodes.playerLikeBtn) nodes.playerLikeBtn.addEventListener("click", toggleCurrentTrackLike);
+  if (nodes.playerDriftBtn) nodes.playerDriftBtn.addEventListener("click", toggleDriftOverdrive);
   
   // Interactive Timeline scrubbing simulation
-  nodes.progressBarContainer.addEventListener("click", scrubPlaybackTimeline);
+  if (nodes.progressBarContainer) nodes.progressBarContainer.addEventListener("click", scrubPlaybackTimeline);
 
   // Authenticated Profile Systems
-  nodes.logoutBtn.addEventListener("click", executeAccountLogout);
-  nodes.authToggleBtn.addEventListener("click", toggleAuthFormIntent);
-  nodes.authForm.addEventListener("submit", processAuthFormSubmission);
+  if (nodes.logoutBtn) nodes.logoutBtn.addEventListener("click", executeAccountLogout);
+  if (nodes.authToggleBtn) nodes.authToggleBtn.addEventListener("click", toggleAuthFormIntent);
+  if (nodes.authForm) nodes.authForm.addEventListener("submit", processAuthFormSubmission);
 }
 
 // --- Session Checking and Verification ---
 function checkAuthenticationSession() {
+  // Fallback to match snapshot session identifier if localStore is unassigned
+  if (!localStorage.getItem("melodify_session")) {
+    localStorage.setItem("melodify_session", "melodify owner");
+  }
+
   const activeUser = localStorage.getItem("melodify_session");
   if (activeUser) {
     state.currentUser = activeUser;
-    nodes.userDisplay.textContent = `⚡ ${activeUser.toUpperCase()}`;
-    nodes.authModal.style.display = "none";
+    if (nodes.userDisplay) nodes.userDisplay.textContent = `Connected: ${activeUser}`;
+    if (nodes.authModal) nodes.authModal.style.display = "none";
     
-    // Extract localized user preferences arrays from dynamic local stores
     state.likedTrackIds = JSON.parse(localStorage.getItem(`liked_${state.currentUser}`)) || [];
     state.recentTrackIds = JSON.parse(localStorage.getItem(`recent_${state.currentUser}`)) || [];
     
     renderTrackWorkspace();
   } else {
-    nodes.authModal.style.display = "flex";
-    nodes.userDisplay.textContent = "Connecting...";
+    if (nodes.authModal) nodes.authModal.style.display = "flex";
+    if (nodes.userDisplay) nodes.userDisplay.textContent = "Connecting...";
   }
 }
 
@@ -220,29 +226,30 @@ function executeAccountLogout() {
 // --- Navigation Pipeline Functions ---
 function switchView(targetView, targetedNode) {
   document.querySelectorAll(".sidebar .menu-item").forEach(btn => btn.classList.remove("active"));
-  targetedNode.classList.add("active");
+  if (targetedNode) targetedNode.classList.add("active");
 
   state.currentView = targetView;
   
-  // Assign custom strings updating the feed headers base title parameters
   const headings = {
     home: "Phonk Feed",
     following: "Following Channels",
     recent: "Recently Played",
     liked: "Your Underground Stash"
   };
-  nodes.feedHeading.textContent = headings[targetView] || "Tracks";
+  if (nodes.feedHeading) nodes.feedHeading.textContent = headings[targetView] || "Tracks";
   renderTrackWorkspace();
 }
 
 function setCategoryFilter(category) {
-  nodes.filterAll.classList.remove("active");
-  nodes.filterMusic.classList.remove("active");
+  if (nodes.filterAll && nodes.filterMusic) {
+    nodes.filterAll.classList.remove("active");
+    nodes.filterMusic.classList.remove("active");
 
-  if (category === "music") {
-    nodes.filterMusic.classList.add("active");
-  } else {
-    nodes.filterAll.classList.add("active");
+    if (category === "music") {
+      nodes.filterMusic.classList.add("active");
+    } else {
+      nodes.filterAll.classList.add("active");
+    }
   }
 
   state.filterCategory = category;
@@ -251,22 +258,19 @@ function setCategoryFilter(category) {
 
 // --- Dynamic Track Workspace Render Pass ---
 function renderTrackWorkspace() {
+  if (!nodes.tracksGrid) return;
   nodes.tracksGrid.innerHTML = "";
 
-  // Apply sequential pipeline operations reducing down catalog parameters 
   let tracks = TRACKS_DATABASE.filter(track => {
-    // 1. Structural view filters
     if (state.currentView === "liked") return state.likedTrackIds.includes(track.id);
     if (state.currentView === "recent") return state.recentTrackIds.includes(track.id);
     return true; 
   });
 
-  // 2. Tab layout categorization pass
   if (state.filterCategory === "music") {
     tracks = tracks.filter(t => t.category === "music");
   }
 
-  // 3. Sub-string match input evaluation queries
   if (state.searchQuery) {
     tracks = tracks.filter(t => 
       t.title.toLowerCase().includes(state.searchQuery) || 
@@ -275,7 +279,10 @@ function renderTrackWorkspace() {
   }
 
   if (tracks.length === 0) {
-    nodes.tracksGrid.innerHTML = `<div style="grid-column: 1/-1; text-align: center; color: var(--txt-dim); padding-top: 40px; font-size: 14px;">No tracks found matching criteria inside this signal channel.</div>`;
+    nodes.tracksGrid.innerHTML = `
+      <div style="grid-column: 1/-1; text-align: center; color: var(--txt-dim); padding-top: 40px; font-size: 13px;">
+        No tracks found matching criteria inside this signal channel.
+      </div>`;
     return;
   }
 
@@ -295,7 +302,9 @@ function renderTrackWorkspace() {
     `;
 
     card.addEventListener("click", () => selectAndPlayTrack(track));
-    nodes.tracksGrid.add(card);
+    
+    // FIXED: Corrected DOM call from .add() to .appendChild() to prevent renderer crashes
+    nodes.tracksGrid.appendChild(card);
   });
 }
 
@@ -310,14 +319,12 @@ function selectAndPlayTrack(track) {
   state.currentTrack = track;
   state.progressPercent = 0;
 
-  // Track dynamic list memory pushes mapping matching structural operations
   state.recentTrackIds = [track.id, ...state.recentTrackIds.filter(id => id !== track.id)].slice(0, 15);
   localStorage.setItem(`recent_${state.currentUser}`, JSON.stringify(state.recentTrackIds));
 
-  // Render deck updates
-  nodes.playerThumb.src = track.thumbnail;
-  nodes.playerTitle.textContent = track.title;
-  nodes.playerProducer.textContent = track.producer;
+  if (nodes.playerThumb) nodes.playerThumb.src = track.thumbnail;
+  if (nodes.playerTitle) nodes.playerTitle.textContent = track.title;
+  if (nodes.playerProducer) nodes.playerProducer.textContent = track.producer;
 
   updateLikeButtonUIState();
   startPlaybackEngine();
@@ -339,35 +346,36 @@ function togglePlaybackState() {
 
 function startPlaybackEngine() {
   state.isPlaying = true;
-  nodes.playIcon.className = "fa-solid fa-pause";
+  if (nodes.playIcon) nodes.playIcon.className = "fa-solid fa-pause";
   
+  if (state.playbackInterval) clearInterval(state.playbackInterval);
   state.playbackInterval = setInterval(() => {
-    state.progressPercent += state.isDriftMode ? 1.4 : 0.8; // Drift acceleration mods
+    state.progressPercent += state.isDriftMode ? 1.4 : 0.8;
     if (state.progressPercent >= 100) {
       state.progressPercent = 0;
     }
-    nodes.playerProgress.style.width = `${state.progressPercent}%`;
+    if (nodes.playerProgress) nodes.playerProgress.style.width = `${state.progressPercent}%`;
   }, 250);
 }
 
 function pausePlaybackEngine() {
   state.isPlaying = false;
-  nodes.playIcon.className = "fa-solid fa-play";
+  if (nodes.playIcon) nodes.playIcon.className = "fa-solid fa-play";
   if (state.playbackInterval) clearInterval(state.playbackInterval);
 }
 
 function stopPlaybackEngine() {
   pausePlaybackEngine();
-  nodes.playerProgress.style.width = "0%";
+  if (nodes.playerProgress) nodes.playerProgress.style.width = "0%";
   state.progressPercent = 0;
 }
 
 function scrubPlaybackTimeline(e) {
-  if (!state.currentTrack) return;
+  if (!state.currentTrack || !nodes.progressBarContainer) return;
   const rect = nodes.progressBarContainer.getBoundingClientRect();
   const clickX = e.clientX - rect.left;
   state.progressPercent = Math.min(100, Math.max(0, (clickX / rect.width) * 100));
-  nodes.playerProgress.style.width = `${state.progressPercent}%`;
+  if (nodes.playerProgress) nodes.playerProgress.style.width = `${state.progressPercent}%`;
 }
 
 function toggleCurrentTrackLike() {
@@ -386,6 +394,7 @@ function toggleCurrentTrackLike() {
 }
 
 function updateLikeButtonUIState() {
+  if (!nodes.playerLikeBtn || !nodes.likeIcon) return;
   if (state.currentTrack && state.likedTrackIds.includes(state.currentTrack.id)) {
     nodes.playerLikeBtn.classList.add("liked");
     nodes.likeIcon.className = "fa-solid fa-heart";
@@ -400,10 +409,10 @@ function toggleDriftOverdrive() {
   state.isDriftMode = !state.isDriftMode;
   
   if (state.isDriftMode) {
-    nodes.appViewport.classList.add("drift-active");
-    nodes.playerDriftBtn.style.color = "var(--accent-drift)";
+    if (nodes.appViewport) nodes.appViewport.classList.add("drift-active");
+    if (nodes.playerDriftBtn) nodes.playerDriftBtn.style.color = "var(--accent-drift)";
   } else {
-    nodes.appViewport.classList.remove("drift-active");
-    nodes.playerDriftBtn.style.color = "";
+    if (nodes.appViewport) nodes.appViewport.classList.remove("drift-active");
+    if (nodes.playerDriftBtn) nodes.playerDriftBtn.style.color = "";
   }
 }
