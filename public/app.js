@@ -1,14 +1,9 @@
 /**
  * ==========================================================================
- * 1. STATE MANAGEMENT & GLOBALS
+ * YOUTUBE DATA API CONFIGURATION
  * ==========================================================================
- */
-/**
- * ==========================================================================
- * YOUTUBE DATA API CONFIGURATION (OPTIONAL)
- * ==========================================================================
- * Place your Google Cloud Console API key inside the quotes below if you 
- * are transitioning from mock data to live server queries.
+ * Paste your Google Cloud Console API key inside the quotes below.
+ * Example: const YT_DATA_API_KEY = "AIzaSyA1B2C3D4...";
  */
 const YT_DATA_API_KEY = "AIzaSyANndBije8n2js5wtfLb05SDW91IGsiqOg";
 
@@ -21,16 +16,9 @@ let ytPlayer = null;
 let playbackInterval = null;
 let currentTrackList = [];
 let currentTrackIndex = -1;
-let currentView = 'home';
-
-// ... Rest of your clean app.js code continues exactly as before
-let ytPlayer = null;
-let playbackInterval = null;
-let currentTrackList = [];
-let currentTrackIndex = -1;
 let currentView = 'home'; // Options: home, following, recent, liked
 
-// Mock Data optimized to seamlessly clip YouTube wide thumbnails into clean squares
+// Default feed data used when search is empty
 const mockDatabase = {
     home: [
         { id: 'tN8w7g0-Nsw', title: 'METAMORPHOSIS', artist: 'INTERWORLD', badge: 'CLASSIC', img: 'https://img.youtube.com/vi/tN8w7g0-Nsw/maxresdefault.jpg' },
@@ -41,9 +29,9 @@ const mockDatabase = {
         { id: 'vA0A8X9xYSw', title: 'AUTOMOTIVE', artist: 'Phonk Killer', badge: 'COWBELL', img: 'https://img.youtube.com/vi/vA0A8X9xYSw/maxresdefault.jpg' }
     ],
     following: [
-        { id: 'dQw4w9WgXcQ', title: 'Cuz We\'re Playing...', artist: 'CG5', badge: 'FEED', img: 'https://img.youtube.com/vi/dQw4w9WgXcQ/maxresdefault.jpg', isChannel: false },
-        { id: 'XqgYj7nO9fM', title: 'smol qwel and tall...', artist: 'CG5', badge: 'FEED', img: 'https://img.youtube.com/vi/XqgYj7nO9fM/maxresdefault.jpg', isChannel: false },
-        { id: 'L_LUpnjbP90', title: 'POPPY PLAYTIME...', artist: 'CG5', badge: 'FEED', img: 'https://img.youtube.com/vi/L_LUpnjbP90/maxresdefault.jpg', isChannel: false }
+        { id: 'dQw4w9WgXcQ', title: 'Cuz We\'re Playing...', artist: 'CG5', badge: 'FEED', img: 'https://img.youtube.com/vi/dQw4w9WgXcQ/maxresdefault.jpg' },
+        { id: 'XqgYj7nO9fM', title: 'smol qwel and tall...', artist: 'CG5', badge: 'FEED', img: 'https://img.youtube.com/vi/XqgYj7nO9fM/maxresdefault.jpg' },
+        { id: 'L_LUpnjbP90', title: 'POPPY PLAYTIME...', artist: 'CG5', badge: 'FEED', img: 'https://img.youtube.com/vi/L_LUpnjbP90/maxresdefault.jpg' }
     ],
     recent: [],
     liked: []
@@ -51,7 +39,7 @@ const mockDatabase = {
 
 /**
  * ==========================================================================
- * 2. YOUTUBE IFRAME HARDWARE ENGINE
+ * 2. YOUTUBE IFRAME HARDWARE ENGINE (Audio/Video Playback)
  * ==========================================================================
  */
 function onYouTubeIframeAPIReady() {
@@ -89,7 +77,6 @@ function onPlayerStateChange(event) {
         clearInterval(playbackInterval);
     }
 
-    // Auto-advance track playlist logic at song completion
     if (event.data === YT.PlayerState.ENDED) {
         handleNextTrack();
     }
@@ -105,19 +92,19 @@ function renderWorkspaceView(viewKey, customData = null) {
     const mainGrid = document.getElementById('main-grid');
     const heading = document.getElementById('feed-heading');
     
-    // Manage active sidebar classes
     document.querySelectorAll('.sidebar .menu-item').forEach(btn => btn.classList.remove('active'));
     const activeNav = document.getElementById(`nav-${viewKey}`);
     if (activeNav) activeNav.classList.add('active');
 
-    // Title Updates
-    heading.textContent = `${viewKey.charAt(0).toUpperCase() + viewKey.slice(1)} Feed`;
+    if (!customData) {
+        heading.textContent = `${viewKey.charAt(0).toUpperCase() + viewKey.slice(1)} Feed`;
+    }
 
     const dataToRender = customData || mockDatabase[viewKey] || [];
     mainGrid.innerHTML = '';
 
     if (dataToRender.length === 0) {
-        mainGrid.innerHTML = `<div style="grid-column: 1/-1; text-align: center; color: var(--txt-dim); padding-top: 40px;">No records or cached tracks found in this node.</div>`;
+        mainGrid.innerHTML = `<div style="grid-column: 1/-1; text-align: center; color: var(--txt-dim); padding-top: 40px;">No tracks found in this category.</div>`;
         return;
     }
 
@@ -128,14 +115,13 @@ function renderWorkspaceView(viewKey, customData = null) {
         card.className = 'track-card';
         card.setAttribute('data-id', track.id);
         
-        // Match the layout configuration for square thumbnails
         card.innerHTML = `
             <div class="card-thumb-wrap">
                 <img src="${track.img}" alt="${track.title}" onerror="this.src='https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?q=80&w=400'">
                 <div class="card-play-overlay">
                     <i class="fas fa-play"></i>
                 </div>
-                <span class="card-badge">${track.badge || 'CACHED'}</span>
+                <span class="card-badge">${track.badge || 'TRACK'}</span>
             </div>
             <h4>${track.title}</h4>
             <div class="card-meta-row">
@@ -160,7 +146,6 @@ function renderWorkspaceView(viewKey, customData = null) {
 function executeTrackPlayback(track) {
     if (!ytPlayer || !ytPlayer.loadVideoById) return;
 
-    // Load to global player dashboard ui nodes
     document.getElementById('player-title').textContent = track.title;
     document.getElementById('player-artist').textContent = track.artist;
     
@@ -168,17 +153,14 @@ function executeTrackPlayback(track) {
     thumb.src = track.img;
     thumb.style.opacity = '1';
 
-    // Fire hardware state machine
     ytPlayer.loadVideoById(track.id);
 
-    // Contextual system switch to Drift Mode overrides
     if (track.badge === 'DRIFT') {
         document.body.classList.add('drift-active');
     } else {
         document.body.classList.remove('drift-active');
     }
 
-    // Add into user caching histories safely
     if (!mockDatabase.recent.some(t => t.id === track.id)) {
         mockDatabase.recent.unshift(track);
         if (mockDatabase.recent.length > 20) mockDatabase.recent.pop();
@@ -244,20 +226,68 @@ function handleScrubNavigation(event) {
 
 /**
  * ==========================================================================
- * 6. LIVE CLIENT-SIDE SEARCH ENGINE FILTER
+ * 6. LIVE YOUTUBE SERVER SEARCH ENGINE (Requires Key Restriction)
  * ==========================================================================
  */
-function processLiveSearch(query) {
-    const cleanQuery = query.toLowerCase().trim();
-    if (!cleanQuery) {
+let searchTimeout = null;
+
+function handleSearchInput(query) {
+    // Clear previous timeout to debounce network requests while typing
+    clearTimeout(searchTimeout);
+    
+    if (!query.toLowerCase().trim()) {
         renderWorkspaceView(currentView);
         return;
     }
 
-    // Scan complete workspace pools across categories
+    // Wait 500ms after user stops typing before calling Google APIs
+    searchTimeout = setTimeout(() => {
+        fetchLiveYouTubeData(query);
+    }, 500);
+}
+
+async function fetchLiveYouTubeData(query) {
+    const heading = document.getElementById('feed-heading');
+
+    // Fallback back to local mocking system if API key placeholder wasn't swapped out
+    if (!YT_DATA_API_KEY || YT_DATA_API_KEY.includes("YOUR_ACTUAL_YOUTUBE_API_KEY")) {
+        console.warn("API key missing. Falling back onto offline client-side query matching.");
+        fallbackLocalSearch(query);
+        return;
+    }
+
+    heading.textContent = `Searching YouTube for "${query}"...`;
+
+    try {
+        const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=12&q=${encodeURIComponent(query)}&type=video&key=${YT_DATA_API_KEY}`;
+        const response = await fetch(url);
+        
+        if (!response.ok) throw new Error(`Google Server returned status: ${response.status}`);
+        
+        const data = await response.json();
+        
+        // Remap Google API structure into layout-compatible array tracks
+        const liveTracks = data.items.map(item => ({
+            id: item.id.videoId,
+            title: item.snippet.title,
+            artist: item.snippet.channelTitle,
+            badge: 'LIVE',
+            img: item.snippet.thumbnails.high ? item.snippet.thumbnails.high.url : item.snippet.thumbnails.medium.url
+        }));
+
+        heading.textContent = `Search Results for: "${query}"`;
+        renderWorkspaceView(currentView, liveTracks);
+
+    } catch (error) {
+        console.error("YouTube Live Data Engine Failure:", error);
+        heading.textContent = `Error searching live servers. Showing local matches.`;
+        fallbackLocalSearch(query);
+    }
+}
+
+function fallbackLocalSearch(query) {
+    const cleanQuery = query.toLowerCase().trim();
     const combinedPool = [...mockDatabase.home, ...mockDatabase.following, ...mockDatabase.recent, ...mockDatabase.liked];
-    
-    // Deduplicate array values
     const uniquelyMapped = Array.from(new Map(combinedPool.map(item => [item.id, item])).values());
 
     const filtered = uniquelyMapped.filter(track => 
@@ -266,7 +296,6 @@ function processLiveSearch(query) {
     );
 
     renderWorkspaceView(currentView, filtered);
-    document.getElementById('feed-heading').textContent = `Search Results for: "${query}"`;
 }
 
 /**
@@ -275,25 +304,25 @@ function processLiveSearch(query) {
  * ==========================================================================
  */
 document.addEventListener('DOMContentLoaded', () => {
-    // Nav Navigation Bindings
+    // Nav Click Event Mapping
     document.getElementById('nav-home').addEventListener('click', () => renderWorkspaceView('home'));
     document.getElementById('nav-following').addEventListener('click', () => renderWorkspaceView('following'));
     document.getElementById('nav-recent').addEventListener('click', () => renderWorkspaceView('recent'));
     document.getElementById('nav-liked').addEventListener('click', () => renderWorkspaceView('liked'));
 
-    // Controller Bindings
+    // Hardware Audio Deck Actions
     document.getElementById('play-pause-btn').addEventListener('click', handlePlayPauseToggle);
     document.querySelector('.deck-controls-row .fa-step-forward').parentElement.addEventListener('click', handleNextTrack);
     document.querySelector('.deck-controls-row .fa-step-backward').parentElement.addEventListener('click', handlePrevTrack);
     
-    // Timeline Scrub Binding
+    // Timeline Seek Handler
     document.getElementById('progress-bar').addEventListener('click', handleScrubNavigation);
 
-    // Input Search Debounce-ready tracking
+    // Live Server Search Listener
     document.getElementById('search-input').addEventListener('input', (e) => {
-        processLiveSearch(e.target.value);
+        handleSearchInput(e.target.value);
     });
 
-    // Boot view initialization sequence 
+    // Boot system
     renderWorkspaceView('home');
 });
