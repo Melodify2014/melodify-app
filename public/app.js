@@ -16,7 +16,7 @@ let state = {
   progressPercent: 0,
   likedTrackIds: [],
   recentTrackIds: [],
-  followedChannels: [] // Format: { id: "CHANNEL_ID", title: "CHANNEL_TITLE" }
+  followedChannels: [] 
 };
 
 // --- YouTube Embedded Player Instance ---
@@ -105,7 +105,6 @@ function loadLocalStorageCacheContext() {
   state.followedChannels = JSON.parse(localStorage.getItem(`followed_channels_${state.currentUser}`)) || [];
 }
 
-// --- Core View Navigator Logic ---
 function switchView(targetView) {
   document.querySelectorAll(".sidebar .menu-item").forEach(btn => btn.classList.remove("active"));
   if (nodes.btnBackChannels) nodes.btnBackChannels.style.display = "none"; 
@@ -132,7 +131,6 @@ function switchView(targetView) {
   }
 }
 
-// --- Render Followed Channels Directory Grid ---
 function renderFollowedChannelsDirectory() {
   if (nodes.feedHeading) nodes.feedHeading.textContent = "Followed Creators";
   if (!nodes.tracksGrid) return;
@@ -162,7 +160,7 @@ function renderFollowedChannelsDirectory() {
   });
 }
 
-// --- Fetch & Open Dedicated Creator Feed Page (Strictly Horizontal Videos) ---
+// --- Fetch & Open Dedicated Creator Feed Page (Nuking Shorts) ---
 async function openSpecificChannelFeedPage(channel) {
   if (nodes.btnBackChannels) nodes.btnBackChannels.style.display = "block";
   if (nodes.feedHeading) nodes.feedHeading.textContent = `${channel.title}'s Videos`;
@@ -170,8 +168,8 @@ async function openSpecificChannelFeedPage(channel) {
   nodes.tracksGrid.innerHTML = `<div style="color:var(--txt-dim); padding: 20px;">Fetching video catalogue streams...</div>`;
 
   try {
-    // Strictly enforcing type=video and videoEmbeddable=true parameters
-    const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=50&channelId=${channel.id}&type=video&videoEmbeddable=true&order=date&key=${YOUTUBE_API_KEY}`;
+    // FIX: Forced the q parameter to explicitly exclude "-shorts" directly on the YouTube network level
+    const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=50&channelId=${channel.id}&q=${encodeURIComponent('-shorts')}&type=video&videoEmbeddable=true&order=date&key=${YOUTUBE_API_KEY}`;
     const res = await fetch(url);
     const data = await res.json();
 
@@ -180,10 +178,11 @@ async function openSpecificChannelFeedPage(channel) {
       return;
     }
 
-    // Filter to ensure things like shorts are minimized by checking descriptions or titles if necessary
+    // Secondary local verification
     const videoItems = data.items.filter(item => {
       const isVideo = item.id && item.id.videoId;
-      const isShort = item.snippet.title.toLowerCase().includes("#shorts") || (item.snippet.description && item.snippet.description.toLowerCase().includes("#shorts"));
+      const title = item.snippet.title.toLowerCase();
+      const isShort = title.includes("#shorts") || title.includes("tiktok");
       return isVideo && !isShort;
     });
 
@@ -196,7 +195,6 @@ async function openSpecificChannelFeedPage(channel) {
       badge: "Cached"
     }));
 
-    // AUTO-CACHE SYSTEM ACTION: Commit all gathered items into local storage history cache
     const historicalStorage = JSON.parse(localStorage.getItem(`history_objects_${state.currentUser}`)) || [];
     TRACKS_DATABASE.forEach(track => {
       if (!historicalStorage.some(h => h.id === track.id)) {
@@ -212,7 +210,7 @@ async function openSpecificChannelFeedPage(channel) {
   }
 }
 
-// --- Live YouTube Network Fetch Operations ---
+// --- Live YouTube Network Fetch Operations (Nuking Shorts) ---
 async function searchYouTube(query) {
   if (!YOUTUBE_API_KEY || YOUTUBE_API_KEY === 'YOUR_YOUTUBE_API_KEY_HERE') {
     nodes.tracksGrid.innerHTML = `<div style="color:red; padding: 20px;">Missing YouTube API Key on Line 2!</div>`;
@@ -225,7 +223,9 @@ async function searchYouTube(query) {
   nodes.tracksGrid.innerHTML = `<div style="color:var(--txt-dim); padding: 20px;">Fetching from YouTube...</div>`;
 
   try {
-    const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=24&q=${encodeURIComponent(query)}&type=video&videoEmbeddable=true&key=${YOUTUBE_API_KEY}`;
+    // FIX: Appending "-shorts" to whatever you searched to block vertical videos
+    const strictQuery = query + ' -shorts';
+    const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=24&q=${encodeURIComponent(strictQuery)}&type=video&videoEmbeddable=true&key=${YOUTUBE_API_KEY}`;
     const response = await fetch(url);
     const data = await response.json();
 
@@ -236,7 +236,8 @@ async function searchYouTube(query) {
 
     const videoItems = data.items.filter(item => {
       const isVideo = item.id && item.id.videoId;
-      const isShort = item.snippet.title.toLowerCase().includes("#shorts");
+      const title = item.snippet.title.toLowerCase();
+      const isShort = title.includes("#shorts") || title.includes("tiktok");
       return isVideo && !isShort;
     });
 
@@ -263,7 +264,6 @@ async function searchYouTube(query) {
   }
 }
 
-// --- Render Core DOM View Structure Elements ---
 function renderTrackWorkspace() {
   if (!nodes.tracksGrid) return;
   
@@ -333,7 +333,6 @@ function toggleChannelFollowState(channelId, channelTitle) {
   renderTrackWorkspace();
 }
 
-// --- Live Audio Deck Controller Engine ---
 function selectAndPlayTrack(track) {
   if (state.currentTrack?.id === track.id) {
     togglePlaybackState();
