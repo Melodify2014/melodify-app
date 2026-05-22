@@ -1,94 +1,97 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Melodify - Phonk Streaming Platform</title>
-    <link rel="stylesheet" href="styles.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Melodify | Phonk Streaming Engine</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
 </head>
 <body>
-    <div class="app-container" id="app-viewport">
-        <aside class="sidebar">
-            <div class="logo">
-                <i class="fa-solid fa-bolt" id="logo-icon"></i> <span>MELODIFY</span>
-            </div>
-            <nav class="menu">
-                <button id="nav-home" class="menu-item active"><i class="fa-solid fa-house"></i> Home</button>
-                <button id="nav-following" class="menu-item"><i class="fa-solid fa-users"></i> Following</button>
-                <button id="nav-recent" class="menu-item"><i class="fa-solid fa-clock"></i> Recent</button>
-                <button id="nav-liked" class="menu-item"><i class="fa-solid fa-heart"></i> Liked</button>
-            </nav>
-        </aside>
 
-        <main class="main-content">
-            <header class="top-bar">
-                <div class="search-box">
-                    <i class="fa-solid fa-magnifying-glass"></i>
-                    <input type="text" id="search-input" placeholder="Live search YouTube channels & tracks...">
-                </div>
-                <div class="user-profile-wrapper" style="display: flex; align-items: center; gap: 16px;">
-                    <span id="user-display">Connecting...</span>
-                    <button id="logout-btn" style="background: none; border: 1px solid var(--border); color: var(--txt-dim); padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600;">Logout</button>
-                </div>
-            </header>
+  <div id="app-viewport" class="app-container">
+    
+    <aside class="sidebar">
+      <div class="logo">
+        <i id="logo-icon" class="fa-solid fa-bolt"></i>
+        <span>MELODIFY</span>
+      </div>
+      <nav class="menu">
+        <button id="nav-home" class="menu-item active">
+          <i class="fa-solid fa-house"></i> Home
+        </button>
+        <button id="nav-following" class="menu-item">
+          <i class="fa-solid fa-user-group"></i> Following
+        </button>
+        <button id="nav-recent" class="menu-item">
+          <i class="fa-solid fa-clock"></i> Recent
+        </button>
+        <button id="nav-liked" class="menu-item">
+          <i class="fa-solid fa-heart"></i> Liked
+        </button>
+      </nav>
+    </aside>
 
-            <section class="content-body">
-                <div class="feed-header">
-                    <h1 id="feed-heading">Phonk Feed</h1>
-                    <div class="filter-tabs">
-                        <button id="filter-all" class="tab active">All</button>
-                        <button id="filter-music" class="tab">Music</button>
-                    </div>
-                </div>
-                <div id="tracks-grid" class="tracks-grid">
-                    </div>
-            </section>
-        </main>
-
-        <footer class="player-bar">
-            <div class="now-playing">
-                <img id="player-thumb" src="https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?q=80&w=100" alt="Current Track">
-                <div class="track-info">
-                    <h4 id="player-title">Select a track</h4>
-                    <p id="player-producer">Unknown Producer</p>
-                </div>
-            </div>
-
-            <div class="player-controls">
-                <div class="buttons">
-                    <button id="player-drift-btn" class="ctrl-btn" title="Toggle Drift Mode"><i class="fa-solid fa-gauge-high"></i></button>
-                    <button id="player-play-btn" class="ctrl-btn play-main"><i id="play-icon" class="fa-solid fa-play"></i></button>
-                    <button id="player-like-btn" class="ctrl-btn"><i id="like-icon" class="fa-regular fa-heart"></i></button>
-                </div>
-                <div class="timeline">
-                    <div class="progress-bar">
-                        <div id="player-progress" class="progress" style="width: 0%;"></div>
-                    </div>
-                </div>
-            </div>
-        </footer>
-    </div>
-
-    <div id="auth-modal" class="auth-overlay" style="display: none;">
-        <div class="auth-card">
-            <h2 id="auth-title">Sign In to Melodify</h2>
-            <div id="auth-error" class="auth-error-banner" style="display: none;"></div>
-            <form id="auth-form">
-                <div class="form-group">
-                    <label>Username</label>
-                    <input type="text" id="auth-username" required autocomplete="off">
-                </div>
-                <div class="form-group">
-                    <label>Password</label>
-                    <input type="password" id="auth-password" required>
-                </div>
-                <button type="submit" id="auth-submit-btn" class="auth-submit">Login</button>
-            </form>
-            <p class="auth-toggle-text"><span id="auth-toggle-text-label">New listener?</span> <a href="#" id="auth-toggle-btn">Create an account</a></p>
+    <main class="main-content">
+      <header class="top-bar">
+        <div class="search-box">
+          <i class="fa-solid fa-magnifying-glass"></i>
+          <input id="search-input" type="text" placeholder="Live search YouTube channels & tracks... (Press Enter)">
         </div>
-    </div>
+        <div style="display: flex; align-items: center; gap: 16px;">
+          <span id="user-display">Connected: melodify owner</span>
+          <button id="logout-btn" class="tab" style="border: 1px solid var(--border)">Logout</button>
+        </div>
+      </header>
 
-    <script src="app.js"></script>
+      <section class="content-body">
+        <div class="feed-header">
+          <h1 id="feed-heading">Phonk Feed</h1>
+          <div class="filter-tabs">
+            <button id="filter-all" class="tab active">All</button>
+            <button id="filter-music" class="tab">Music</button>
+          </div>
+        </div>
+
+        <div id="tracks-grid" class="tracks-grid"></div>
+      </section>
+    </main>
+
+    <footer class="player-bar">
+      <div class="now-playing">
+        <img id="player-thumb" src="https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?q=80&w=250" alt="Cover">
+        <div class="track-info">
+          <h4 id="player-title">Select a track</h4>
+          <p id="player-producer">Unknown Producer</p>
+        </div>
+      </div>
+
+      <div class="player-controls">
+        <div class="buttons">
+          <button id="player-drift-btn" class="ctrl-btn"><i class="fa-solid fa-gauge-high"></i></button>
+          <button id="player-prev-btn" class="ctrl-btn"><i class="fa-solid fa-backward-step"></i></button>
+          <button id="player-play-btn" class="ctrl-btn play-main"><i id="play-icon" class="fa-solid fa-play"></i></button>
+          <button id="player-next-btn" class="ctrl-btn"><i class="fa-solid fa-forward-step"></i></button>
+          <button id="player-like-btn" class="ctrl-btn"><i id="like-icon" class="fa-regular fa-heart"></i></button>
+        </div>
+        <div class="timeline">
+          <div class="progress-bar">
+            <div id="player-progress" class="progress" style="width: 0%;"></div>
+          </div>
+        </div>
+      </div>
+
+      <div style="width: 30%;"></div>
+    </footer>
+
+  </div>
+
+  <div id="yt-player-container" style="position: absolute; width: 0; height: 0; top: -9999px;"></div>
+
+  <script src="https://www.youtube.com/iframe_api"></script>
+  <script src="app.js"></script>
 </body>
 </html>
