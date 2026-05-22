@@ -333,6 +333,9 @@ function updateAudioControlBarUI() {
     const isCurrentLiked = currentTrack && activeLikes.includes(currentTrack._id || currentTrack.id);
     playerLikeBtn.style.color = isCurrentLiked ? "#ef4444" : "";
     likeIcon.className = isCurrentLiked ? "fa-solid fa-heart" : "fa-regular fa-heart";
+    
+    // Safety check fallback to clean the initial "Unknown Producer" UI error bug state
+    playerProducer.textContent = currentTrack ? (currentTrack.producer || 'Unknown Producer') : 'Select a track';
 }
 
 playerPlayBtn.addEventListener('click', () => {
