@@ -17,10 +17,14 @@ const MONGO_URI = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/melodify';
 
 app.use(express.json());
 app.use(cors());
+
+// Serve static assets out of your public build directory
 app.use(express.static(path.join(__dirname, 'public')));
 
 /**
+ * ==========================================================================
  * DATABASE CONFIGURATION
+ * ==========================================================================
  */
 const UserSchema = new mongoose.Schema({
     username: { type: String, required: true, unique: true },
@@ -37,7 +41,7 @@ const TrackSchema = new mongoose.Schema({
     youtubeId: { type: String, required: true, unique: true },
     type: { type: String, default: 'music' },
     tags: [{ type: String }]
-});
+}, { timestamps: true }); // Tracks when records enter our cache matrix
 
 const User = mongoose.model('User', UserSchema);
 const Track = mongoose.model('Track', TrackSchema);
@@ -47,7 +51,9 @@ mongoose.connect(MONGO_URI)
     .catch(err => console.error('Database Connection Error:', err));
 
 /**
+ * ==========================================================================
  * AUTHENTICATION MIDDLEWARE
+ * ==========================================================================
  */
 const parseBearerAuthenticationToken = async (req, res, next) => {
     try {
@@ -65,7 +71,9 @@ const parseBearerAuthenticationToken = async (req, res, next) => {
 };
 
 /**
+ * ==========================================================================
  * AUTHENTICATION ENDPOINTS
+ * ==========================================================================
  */
 app.post('/api/auth/register', async (req, res) => {
     try {
@@ -99,7 +107,9 @@ app.get('/api/auth/me', parseBearerAuthenticationToken, (req, res) => {
 });
 
 /**
- * DYNAMIC MULTI-PAGE CHANNELS TRACK FINDER ENDPOINT
+ * ==========================================================================
+ * DYNAMIC MULTI-PAGE CHANNELS TRACK FINDER ENDPOINT (OPTIMIZED)
+ * ==========================================================================
  */
 app.get('/api/tracks', async (req, res) => {
     try {
@@ -115,8 +125,6 @@ app.get('/api/tracks', async (req, res) => {
                     
                     const deepScrapePhrases = [
                         `"${producerTarget}" music`,
-                        `"${producerTarget}" song`,
-                        `"${producerTarget}" remix`,
                         `"${producerTarget}" tracks`
                     ];
 
@@ -124,62 +132,83 @@ app.get('/api/tracks', async (req, res) => {
                     const baseFeed = await ytSearch({ channelId: matchedChannel.id });
                     if (baseFeed && baseFeed.videos) compiledVideos = [...baseFeed.videos];
 
-                    for (const phrase of deepScrapePhrases) {
-                        const batchSearchResult = await ytSearch({ query: phrase });
-                        if (batchSearchResult && batchSearchResult.videos) {
-                            compiledVideos = compiledVideos.concat(batchSearchResult.videos);
+                    // Process loops concurrently using Promise.all to prevent locking the main thread
+                    const searchPromises = deepScrapePhrases.map(phrase => ytSearch({ query: phrase }));
+                    const searchResults = await Promise.all(searchPromises);
+
+                    searchResults.forEach(result => {
+                        if (result && result.videos) {
+                            compiledVideos = compiledVideos.concat(result.videos);
                         }
-                    }
+                    });
 
                     const uniqueVideoMap = {};
                     compiledVideos.forEach(v => { uniqueVideoMap[v.videoId] = v; });
                     const finalScrapedPool = Object.values(uniqueVideoMap).filter(v => (v.seconds || 0) > 40);
 
-                    for (const video of finalScrapedPool) {
-                        const cleanTitle = video.title.replace(/[\(\[].*?[\)\]]/g, '').trim();
-                        const isDriftPhonk = /drift|phonk|rave|lxst|dxrk/i.test(video.title);
+                    // Perform a high-speed bulk writing execution to MongoDB
+                    if (finalScrapedPool.length > 0) {
+                        const bulkOperations = finalScrapedPool.map(video => {
+                            const cleanTitle = video.title.replace(/[\(\[].*?[\)\]]/g, '').trim();
+                            const isDriftPhonk = /drift|phonk|rave|lxst|dxrk/i.test(video.title);
+                            
+                            // Use fallback hqdefault mapping to eliminate any potential 404 network assets
+                            const thumbUrl = video.image || video.thumbnail || `https://img.youtube.com/vi/${video.videoId}/hqdefault.jpg`;
 
-                        await Track.findOneAndUpdate(
-                            { youtubeId: video.videoId },
-                            {
-                                title: cleanTitle,
-                                producer: video.author.name || producerTarget, 
-                                thumbnail: video.image || video.thumbnail,
-                                youtubeId: video.videoId,
-                                type: 'music',
-                                tags: isDriftPhonk ? ['drift', 'phonk'] : ['music']
-                            },
-                            { upsert: true }
-                        );
+                            return {
+                                updateOne: {
+                                    filter: { youtubeId: video.videoId },
+                                    update: {
+                                        title: cleanTitle,
+                                        producer: video.author.name || producerTarget, 
+                                        thumbnail: thumbUrl,
+                                        youtubeId: video.videoId,
+                                        type: 'music',
+                                        tags: isDriftPhonk ? ['drift', 'phonk'] : ['music']
+                                    },
+                                    upsert: true
+                                }
+                            };
+                        });
+                        await Track.bulkWrite(bulkOperations);
                     }
                 }
             } catch (err) { 
-                console.error("Deep pagination algorithm bypassed gracefully:", err); 
+                console.error("Deep cache parsing system bypassed gracefully:", err); 
             }
         } else if (queryToken && queryToken.trim().length > 0) {
             try {
                 const standardSearch = await ytSearch({ query: queryToken });
                 if (standardSearch && standardSearch.videos) {
-                    for (const video of standardSearch.videos.slice(0, 40)) {
-                        if ((video.seconds || 0) < 45) continue;
-                        const cleanTitle = video.title.replace(/[\(\[].*?[\)\]]/g, '').trim();
-                        await Track.findOneAndUpdate(
-                            { youtubeId: video.videoId },
-                            {
-                                title: cleanTitle,
-                                producer: video.author.name || 'Unknown Producer',
-                                thumbnail: video.image || video.thumbnail,
-                                youtubeId: video.videoId,
-                                type: 'music',
-                                tags: ['music']
-                            },
-                            { upsert: true }
-                        );
+                    const poolSlice = standardSearch.videos.slice(0, 40).filter(v => (v.seconds || 0) >= 45);
+                    
+                    if (poolSlice.length > 0) {
+                        const bulkOperations = poolSlice.map(video => {
+                            const cleanTitle = video.title.replace(/[\(\[].*?[\)\]]/g, '').trim();
+                            const thumbUrl = video.image || video.thumbnail || `https://img.youtube.com/vi/${video.videoId}/hqdefault.jpg`;
+                            
+                            return {
+                                updateOne: {
+                                    filter: { youtubeId: video.videoId },
+                                    update: {
+                                        title: cleanTitle,
+                                        producer: video.author.name || 'Unknown Producer',
+                                        thumbnail: thumbUrl,
+                                        youtubeId: video.videoId,
+                                        type: 'music',
+                                        tags: ['music']
+                                    },
+                                    upsert: true
+                                }
+                            };
+                        });
+                        await Track.bulkWrite(bulkOperations);
                     }
                 }
-            } catch (e) {}
+            } catch (e) { console.error("Standard search tracking error:", e); }
         }
 
+        // DATABASE LOOKUP FALLBACK CORE
         let queryCondition = {};
         if (producerTarget) {
             queryCondition = { producer: { $regex: producerTarget, $options: 'i' } };
@@ -192,7 +221,7 @@ app.get('/api/tracks', async (req, res) => {
             };
         }
 
-        const feedCatalog = await Track.find(queryCondition).sort({ _id: -1 }).limit(500);
+        const feedCatalog = await Track.find(queryCondition).sort({ _id: -1 }).limit(100);
         return res.status(200).json(feedCatalog);
     } catch (err) {
         return res.status(500).json({ message: 'Failed reading tracks matrix.' });
@@ -200,7 +229,9 @@ app.get('/api/tracks', async (req, res) => {
 });
 
 /**
+ * ==========================================================================
  * INTERACTION ENDPOINTS
+ * ==========================================================================
  */
 app.post('/api/users/history', parseBearerAuthenticationToken, async (req, res) => {
     try {
@@ -235,6 +266,7 @@ app.post('/api/users/follow', parseBearerAuthenticationToken, async (req, res) =
     } catch (err) { return res.status(500).json({ message: 'Follow modification failure.' }); }
 });
 
+// Single Page Application SPA catch-all routing fallback block
 app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
