@@ -108,13 +108,11 @@ app.get('/api/tracks', async (req, res) => {
 
         if (producerTarget && producerTarget.trim().length > 0) {
             try {
-                // Find the target channel metadata dynamically
                 const channelDataQuery = await ytSearch({ query: producerTarget, category: 'channels' });
                 
                 if (channelDataQuery && channelDataQuery.channels && channelDataQuery.channels.length > 0) {
                     const matchedChannel = channelDataQuery.channels[0];
                     
-                    // Recursive keyword mapping to strip away YouTube's layout walls
                     const deepScrapePhrases = [
                         `"${producerTarget}" music`,
                         `"${producerTarget}" song`,
@@ -126,7 +124,6 @@ app.get('/api/tracks', async (req, res) => {
                     const baseFeed = await ytSearch({ channelId: matchedChannel.id });
                     if (baseFeed && baseFeed.videos) compiledVideos = [...baseFeed.videos];
 
-                    // Query cluster execution loop
                     for (const phrase of deepScrapePhrases) {
                         const batchSearchResult = await ytSearch({ query: phrase });
                         if (batchSearchResult && batchSearchResult.videos) {
@@ -134,12 +131,10 @@ app.get('/api/tracks', async (req, res) => {
                         }
                     }
 
-                    // Strict deduplication and filter layer
                     const uniqueVideoMap = {};
                     compiledVideos.forEach(v => { uniqueVideoMap[v.videoId] = v; });
                     const finalScrapedPool = Object.values(uniqueVideoMap).filter(v => (v.seconds || 0) > 40);
 
-                    // Hydrate local MongoDB cache store 
                     for (const video of finalScrapedPool) {
                         const cleanTitle = video.title.replace(/[\(\[].*?[\)\]]/g, '').trim();
                         const isDriftPhonk = /drift|phonk|rave|lxst|dxrk/i.test(video.title);
@@ -148,7 +143,6 @@ app.get('/api/tracks', async (req, res) => {
                             { youtubeId: video.videoId },
                             {
                                 title: cleanTitle,
-                                // Uses original channel author name if matched, else falls back to context target string
                                 producer: video.author.name || producerTarget, 
                                 thumbnail: video.image || video.thumbnail,
                                 youtubeId: video.videoId,
@@ -186,7 +180,6 @@ app.get('/api/tracks', async (req, res) => {
             } catch (e) {}
         }
 
-        // Database Catalog Sort Filters
         let queryCondition = {};
         if (producerTarget) {
             queryCondition = { producer: { $regex: producerTarget, $options: 'i' } };
@@ -199,7 +192,6 @@ app.get('/api/tracks', async (req, res) => {
             };
         }
 
-        // Display up to 500 tracks inside the catalog layout grid context
         const feedCatalog = await Track.find(queryCondition).sort({ _id: -1 }).limit(500);
         return res.status(200).json(feedCatalog);
     } catch (err) {
