@@ -51,7 +51,6 @@ mongoose.connect(MONGO_URI)
     })
     .catch(err => console.error('CRITICAL: Database connectivity broken:', err));
 
-// Image Fallback Formatter Utility
 const getSecureThumbnail = (video) => {
     const fallbackImage = 'https://images.unsplash.com/photo-1614680376593-902f74fa0d41?q=80&w=500';
     if (!video.videoId) return fallbackImage;
@@ -62,7 +61,6 @@ const getSecureThumbnail = (video) => {
     return rawImage.replace('hqdefault.jpg', 'mqdefault.jpg');
 };
 
-// Stateless Token Authentication Filter
 const authenticateBearerToken = async (req, res, next) => {
     try {
         const authHeader = req.headers['authorization'];
@@ -76,7 +74,7 @@ const authenticateBearerToken = async (req, res, next) => {
     } catch (e) { return res.status(403).json({ message: 'Unauthorized session window.' }); }
 };
 
-// RESTful Route Interfaces
+// Route Implementations
 app.post('/api/auth/register', async (req, res) => {
     try {
         const { username, password } = req.body;
