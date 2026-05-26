@@ -1,6 +1,3 @@
-/**
- * Melodify Client Pipeline Engine & Audio Core Controller
- */
 document.addEventListener('DOMContentLoaded', () => {
     const API_URL = window.location.origin;
     
@@ -13,7 +10,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let sessionUserToken = localStorage.getItem('melodify_jwt');
     let authenticatedUserData = null;
 
-    // Core Interface UI Mappings
+    // Interface Hooks
     const tracksContainer = document.getElementById('tracks-container');
     const searchInput = document.getElementById('search-input');
     const searchBtn = document.getElementById('search-btn');
@@ -24,7 +21,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const authForm = document.getElementById('auth-form');
     const authToggleLink = document.getElementById('auth-toggle-link');
     
-    // Bottom Audio Bar Elements
+    // Playback Components
     const playerDock = document.getElementById('player-dock');
     const dockThumb = document.getElementById('dock-thumb');
     const dockTitle = document.getElementById('dock-title');
@@ -34,7 +31,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const dockLikeBtn = document.getElementById('dock-like-btn');
     const volumeSlider = document.getElementById('volume-slider');
 
-    // Mount Hidden YouTube Audio Frame Node
+    // Mount Invisible Stream Engine
     const hiddenPlayerDiv = document.createElement('div');
     hiddenPlayerDiv.id = 'melodify-hidden-hardware-engine';
     hiddenPlayerDiv.style.display = 'none';
@@ -46,17 +43,14 @@ document.addEventListener('DOMContentLoaded', () => {
             playerVars: { 'playsinline': 1, 'controls': 0, 'disablekb': 1 },
             events: {
                 'onStateChange': handleEngineStateChange,
-                'onError': (e) => console.error("YouTube Engine Stream Interruption:", e.data)
+                'onError': (e) => console.error("YouTube Engine Interruption:", e.data)
             }
         });
     };
 
-    /**
-     * Data Rendering and Compact Layout Layers
-     */
     async function executeCatalogSynchronization(queryParameters = '') {
         try {
-            tracksContainer.innerHTML = '<div class="loading-state">Synchronizing track arrays...</div>';
+            tracksContainer.innerHTML = '<div class="loading-state">Syncing track arrays...</div>';
             const response = await fetch(`${API_URL}/api/tracks${queryParameters}`);
             localCacheTracks = await response.json();
             renderTrackGrid(localCacheTracks);
@@ -68,7 +62,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function renderTrackGrid(tracksList) {
         tracksContainer.innerHTML = '';
         if (!tracksList || tracksList.length === 0) {
-            tracksContainer.innerHTML = '<div class="empty-state">No matching sounds detected. Please run a new query.</div>';
+            tracksContainer.innerHTML = '<div class="empty-state">No matching sounds detected.</div>';
             return;
         }
 
@@ -80,7 +74,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const primaryThumb = `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
             const fallbackThumb = `https://img.youtube.com/vi/${videoId}/mqdefault.jpg`;
-            const backupAesthetic = `https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?q=80&w=500`;
 
             const card = `
                 <div class="track-card" data-id="${track._id}">
@@ -90,7 +83,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             alt="${titleParsed}" 
                             class="track-thumb" 
                             loading="lazy"
-                            onerror="this.onerror=null; this.src='${fallbackThumb}'; this.addEventListener('error', function(){ this.src='${backupAesthetic}'; });" 
+                            onerror="this.onerror=null; this.src='${fallbackThumb}';" 
                         />
                         <button class="play-overlay-btn" data-id="${track._id}">▶</button>
                     </div>
@@ -152,17 +145,13 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function handleEngineStateChange(event) {
-        // Automatic Track Loop Execution Block
-        if (event.data === YT.PlayerState.ENDED) {
-            if (isLoopActive) {
-                ytPlayerInstance.seekTo(0);
-                ytPlayerInstance.playVideo();
-                return;
-            }
+        if (event.data === YT.PlayerState.ENDED && isLoopActive) {
+            ytPlayerInstance.seekTo(0);
+            ytPlayerInstance.playVideo();
+            return;
         }
 
-        const gridPlayButtons = document.querySelectorAll('.play-overlay-btn');
-        gridPlayButtons.forEach(b => {
+        document.querySelectorAll('.play-overlay-btn').forEach(b => {
             if (activeTrackContext && b.getAttribute('data-id') === activeTrackContext._id) {
                 b.textContent = event.data === YT.PlayerState.PLAYING ? '⏸' : '▶';
             } else {
@@ -172,16 +161,9 @@ document.addEventListener('DOMContentLoaded', () => {
         dockPlayBtn.textContent = event.data === YT.PlayerState.PLAYING ? '⏸' : '▶';
     }
 
-    // Toggle Loop State Event Setup
     dockLoopBtn.addEventListener('click', () => {
         isLoopActive = !isLoopActive;
-        if (isLoopActive) {
-            dockLoopBtn.classList.add('active-loop');
-            dockLoopBtn.style.color = '#1db954'; 
-        } else {
-            dockLoopBtn.classList.remove('active-loop');
-            dockLoopBtn.style.color = '#ffffff';
-        }
+        dockLoopBtn.style.color = isLoopActive ? '#1db954' : '#ffffff';
     });
 
     dockPlayBtn.addEventListener('click', () => {
@@ -197,9 +179,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    /**
-     * Session Authentication Management Layer
-     */
     async function verifyUserSession() {
         if (!sessionUserToken) return;
         try {
@@ -243,7 +222,7 @@ document.addEventListener('DOMContentLoaded', () => {
         e.preventDefault();
         currentAuthMode = currentAuthMode === 'login' ? 'register' : 'login';
         document.getElementById('modal-headline').textContent = currentAuthMode === 'login' ? 'Sign In to Melodify' : 'Create Account';
-        document.getElementById('auth-submit-action').textContent = currentAuthMode === 'login' ? 'Continue' : 'Register Account';
+        document.getElementById('auth-submit-action').textContent = currentAuthMode === 'login' ? 'Continue' : 'Register';
         document.getElementById('auth-toggle-prompt').innerHTML = currentAuthMode === 'login' ? `Don't have an account? <a href="#" id="auth-toggle-link">Register</a>` : `Already a member? <a href="#" id="auth-toggle-link">Sign In</a>`;
     });
 
@@ -266,8 +245,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 await verifyUserSession();
                 closeModal();
                 authForm.reset();
-            } else { alert(data.message || "Authentication rejected."); }
-        } catch (err) { alert("Authorization network path timed out."); }
+            } else { alert(data.message || "Auth error."); }
+        } catch (err) { alert("Authorization network timeout."); }
     });
 
     async function toggleTrackLikeStatus(trackId) {
@@ -275,10 +254,7 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             const res = await fetch(`${API_URL}/api/users/like`, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${sessionUserToken}`
-                },
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${sessionUserToken}` },
                 body: JSON.stringify({ trackId })
             });
             const data = await res.json();
@@ -295,10 +271,7 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             await fetch(`${API_URL}/api/users/history`, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${sessionUserToken}`
-                },
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${sessionUserToken}` },
                 body: JSON.stringify({ trackId })
             });
         } catch (e) { console.error(e); }
