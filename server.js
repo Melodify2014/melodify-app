@@ -3,15 +3,12 @@
  */
 const express = require('express');
 const mongoose = require('mongoose');
-const jwt = require('jsonwebtoken');
-const bcrypt = require('bcryptjs');
 const cors = require('cors');
 const path = require('path');
 const ytSearch = require('yt-search');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
-const JWT_SECRET = process.env.JWT_SECRET || 'melodify_super_secret_key_1337';
 const MONGO_URI = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/melodify';
 
 app.use(express.json());
@@ -45,9 +42,14 @@ mongoose.connect(MONGO_URI)
     })
     .catch(err => console.error('Database Connection Error:', err));
 
+/**
+ * Robust YouTube image fallback parsing logic.
+ * Safely falls back to medium quality (mqdefault) asset paths to avoid 404 errors.
+ */
 const getSecureThumbnail = (video) => {
     const defaultPlaceholder = 'https://images.unsplash.com/photo-1614680376593-902f74fa0d41?q=80&w=500&auto=format&fit=crop';
     if (!video.videoId) return defaultPlaceholder;
+    
     const rawImage = video.image || video.thumbnail;
     if (!rawImage || rawImage.includes('pixel') || rawImage.includes('blank')) {
         return `https://img.youtube.com/vi/${video.videoId}/mqdefault.jpg`; 
