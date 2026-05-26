@@ -4,13 +4,11 @@
 document.addEventListener('DOMContentLoaded', () => {
     const API_URL = window.location.origin;
     
-    // Core Engine Instances
     let ytPlayerInstance = null;
-    let currentAuthMode = 'login'; // login | register
+    let currentAuthMode = 'login'; 
     let activeTrackContext = null;
     let localCacheTracks = [];
 
-    // Memory Object Definitions
     let sessionUserToken = localStorage.getItem('melodify_jwt');
     let authenticatedUserData = null;
 
@@ -24,7 +22,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const closeModalBtn = document.getElementById('close-modal-btn');
     const authForm = document.getElementById('auth-form');
     const authToggleLink = document.getElementById('auth-toggle-link');
-    const sidebarMenuItems = document.querySelectorAll('.menu-item');
     
     // Player Dock Selectors
     const playerDock = document.getElementById('player-dock');
@@ -54,7 +51,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     /**
      * ==========================================================================
-     * COMPILATION CORE SYNCHRONIZER
+     * CATALOG GRID RENDER MATRIX WITH MULTI-STAGE THUMBNAIL CACHING
      * ==========================================================================
      */
     async function executeCatalogSynchronization(queryParameters = '') {
@@ -79,11 +76,23 @@ document.addEventListener('DOMContentLoaded', () => {
             const titleParsed = (track.title || 'Untitled Track').replace(/"/g, '&quot;');
             const producerParsed = (track.producer || 'Unknown Producer').replace(/"/g, '&quot;');
             const isLiked = authenticatedUserData && authenticatedUserData.likedTracks.includes(track._id);
+            const videoId = track.youtubeId || '';
+
+            // Thumbnail Multi-stage Fallback Engine Configurations
+            const primaryThumb = `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
+            const fallbackThumb = `https://img.youtube.com/vi/${videoId}/mqdefault.jpg`;
+            const backupAesthetic = `https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?q=80&w=500`;
 
             const card = `
                 <div class="track-card" data-id="${track._id}">
                     <div class="thumbnail-wrapper">
-                        <img src="${track.thumbnail}" alt="${titleParsed}" class="track-thumb" onerror="this.src='https://images.unsplash.com/photo-1614680376593-902f74fa0d41?q=80&w=500';" />
+                        <img 
+                            src="${track.thumbnail || primaryThumb}" 
+                            alt="${titleParsed}" 
+                            class="track-thumb" 
+                            loading="lazy"
+                            onerror="this.onerror=null; this.src='${fallbackThumb}'; this.addEventListener('error', function(){ this.src='${backupAesthetic}'; });" 
+                        />
                         <button class="play-overlay-btn" data-id="${track._id}">▶</button>
                     </div>
                     <div class="track-details">
@@ -122,7 +131,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     /**
      * ==========================================================================
-     * STREAM ENGINE ACTIONS
+     * AUDIO ENGINE CONTROLS
      * ==========================================================================
      */
     function toggleMediaStream(track) {
@@ -140,7 +149,7 @@ document.addEventListener('DOMContentLoaded', () => {
         activeTrackContext = track;
         dockTitle.textContent = track.title;
         dockProducer.textContent = track.producer;
-        dockThumb.src = track.thumbnail;
+        dockThumb.src = track.thumbnail || `https://img.youtube.com/vi/${track.youtubeId}/mqdefault.jpg`;
         dockPlayBtn.textContent = '⏳';
 
         updateLikeDockIcon();
@@ -151,7 +160,6 @@ document.addEventListener('DOMContentLoaded', () => {
     function handleEngineStateChange(event) {
         const gridPlayButtons = document.querySelectorAll('.play-overlay-btn');
         
-        // Reset play button labels safely
         gridPlayButtons.forEach(b => {
             if (activeTrackContext && b.getAttribute('data-id') === activeTrackContext._id) {
                 b.textContent = event.data === YT.PlayerState.PLAYING ? '⏸' : '▶';
@@ -182,7 +190,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     /**
      * ==========================================================================
-     * IDENTITY MODULE & AUTH RETRIEVAL
+     * SESSION MANAGEMENT & IDENTITY CONTROLS
      * ==========================================================================
      */
     async function verifyUserSession() {
@@ -222,7 +230,6 @@ document.addEventListener('DOMContentLoaded', () => {
         renderTrackGrid(localCacheTracks);
     }
 
-    // --- Interactive Modal Layout Bindings ---
     const openModal = () => authModal.classList.remove('hidden');
     const closeModal = () => authModal.classList.add('hidden');
 
@@ -242,8 +249,8 @@ document.addEventListener('DOMContentLoaded', () => {
         e.preventDefault();
         const username = document.getElementById('auth-username').value;
         const password = document.getElementById('auth-password').value;
-
         const endpoint = currentAuthMode === 'login' ? '/api/auth/login' : '/api/auth/register';
+        
         try {
             const res = await fetch(`${API_URL}${endpoint}`, {
                 method: 'POST',
@@ -261,13 +268,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 alert(data.message || "Authentication anomaly occurred.");
             }
         } catch (err) {
-            alert("Network dropped during request.");
+            alert("Network dropped during authentication routing.");
         }
     });
 
     /**
      * ==========================================================================
-     * INTERACTIONS AND USER TRACK METRICS
+     * METRIC REPOS & SEARCH DISPATCHERS
      * ==========================================================================
      */
     async function toggleTrackLikeStatus(trackId) {
@@ -293,7 +300,7 @@ document.addEventListener('DOMContentLoaded', () => {
     async function logWatchHistory(trackId) {
         if (!sessionUserToken) return;
         try {
-            const res = await fetch(`${API_URL}/api/users/history`, {
+            await fetch(`${API_URL}/api/users/history`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -301,10 +308,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 },
                 body: JSON.stringify({ trackId })
             });
-            if (res.ok) {
-                const data = await res.json();
-                authenticatedUserData.watchHistory = data.watchHistory;
-            }
         } catch (e) { console.error(e); }
     }
 
@@ -319,7 +322,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if (activeTrackContext) toggleTrackLikeStatus(activeTrackContext._id);
     });
 
-    // --- Search Triggers ---
     const executeSearchAction = () => {
         const query = searchInput.value.trim();
         if (query) executeCatalogSynchronization(`?q=${encodeURIComponent(query)}`);
@@ -328,6 +330,5 @@ document.addEventListener('DOMContentLoaded', () => {
     searchBtn.addEventListener('click', executeSearchAction);
     searchInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') executeSearchAction(); });
 
-    // Initial Bootstrap
     verifyUserSession().then(() => executeCatalogSynchronization());
 });
