@@ -1,5 +1,5 @@
 /**
- * Melodify Monolithic Gateway Production Backend Server
+ * Melodify Gateway Architecture Production API Server
  */
 const express = require('express');
 const mongoose = require('mongoose');
@@ -18,7 +18,7 @@ app.use(express.json());
 app.use(cors());
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Database Schemas & Data Modelling Layer
+// Schema Definition Framework Layers
 const UserSchema = new mongoose.Schema({
     username: { type: String, required: true, unique: true, lowercase: true, trim: true },
     password: { type: String, required: true },
@@ -40,23 +40,21 @@ const Track = mongoose.model('Track', TrackSchema);
 
 mongoose.connect(MONGO_URI)
     .then(async () => {
-        console.log('Connected to MongoDB Successfully.');
+        console.log('Connected to MongoDB.');
         if (process.env.RESET_DB === 'true') {
-            console.log('⚠️ RESET_DB active. Truncating track history data stacks...');
+            console.log('⚠️ RESET_DB triggered. Flushing data layers...');
             try {
                 await Track.deleteMany({});
-                console.log('✅ Database tracking arrays cleared down.');
-            } catch (err) {
-                console.error('❌ Truncation anomaly:', err);
-            }
+                console.log('✅ Track database wiped clean.');
+            } catch (err) { console.error('Database clearing exception:', err); }
         }
     })
-    .catch(err => console.error('Database Connectivity Failure:', err));
+    .catch(err => console.error('CRITICAL: Database connectivity broken:', err));
 
-// Image Parsing Optimization Hooks
+// Image Fallback Formatter Utility
 const getSecureThumbnail = (video) => {
-    const defaultPlaceholder = 'https://images.unsplash.com/photo-1614680376593-902f74fa0d41?q=80&w=500';
-    if (!video.videoId) return defaultPlaceholder;
+    const fallbackImage = 'https://images.unsplash.com/photo-1614680376593-902f74fa0d41?q=80&w=500';
+    if (!video.videoId) return fallbackImage;
     const rawImage = video.image || video.thumbnail;
     if (!rawImage || rawImage.includes('pixel') || rawImage.includes('blank')) {
         return `https://img.youtube.com/vi/${video.videoId}/mqdefault.jpg`; 
@@ -64,28 +62,28 @@ const getSecureThumbnail = (video) => {
     return rawImage.replace('hqdefault.jpg', 'mqdefault.jpg');
 };
 
-// Security Bearer Authentication Handlers
+// Stateless Token Authentication Filter
 const authenticateBearerToken = async (req, res, next) => {
     try {
         const authHeader = req.headers['authorization'];
         const token = authHeader && authHeader.split(' ')[1];
-        if (!token) return res.status(401).json({ message: 'Missing token parameters.' });
+        if (!token) return res.status(401).json({ message: 'Missing token data.' });
 
         const decoded = jwt.verify(token, JWT_SECRET);
         req.user = await User.findById(decoded.id).select('-password');
-        if (!req.user) return res.status(401).json({ message: 'Session dead.' });
+        if (!req.user) return res.status(401).json({ message: 'Session trace not found.' });
         next();
-    } catch (e) { return res.status(403).json({ message: 'Invalid validation signatures.' }); }
+    } catch (e) { return res.status(403).json({ message: 'Unauthorized session window.' }); }
 };
 
-// --- Routing Endpoints ---
+// RESTful Route Interfaces
 app.post('/api/auth/register', async (req, res) => {
     try {
         const { username, password } = req.body;
-        if (!username || !password || username.trim().length < 3) return res.status(400).json({ message: 'Criteria mismatch.' });
+        if (!username || !password || username.trim().length < 3) return res.status(400).json({ message: 'Validation rule error.' });
 
         const exists = await User.findOne({ username: username.toLowerCase() });
-        if (exists) return res.status(400).json({ message: 'Username occupied.' });
+        if (exists) return res.status(400).json({ message: 'Username has been taken.' });
 
         const salt = await bcrypt.genSalt(10);
         const encryptedPassword = await bcrypt.hash(password, salt);
@@ -93,7 +91,7 @@ app.post('/api/auth/register', async (req, res) => {
         const newUser = await User.create({ username: username.toLowerCase(), password: encryptedPassword });
         const token = jwt.sign({ id: newUser._id }, JWT_SECRET, { expiresIn: '7d' });
         return res.status(201).json({ token, user: { id: newUser._id, username: newUser.username } });
-    } catch (e) { return res.status(500).json({ message: 'Registration lifecycle broken.' }); }
+    } catch (e) { return res.status(500).json({ message: 'Registration exception.' }); }
 });
 
 app.post('/api/auth/login', async (req, res) => {
@@ -101,11 +99,11 @@ app.post('/api/auth/login', async (req, res) => {
         const { username, password } = req.body;
         const user = await User.findOne({ username: username.toLowerCase() });
         if (!user || !(await bcrypt.compare(password, user.password))) {
-            return res.status(401).json({ message: 'Invalid credentials combo.' });
+            return res.status(401).json({ message: 'Identity check mismatched.' });
         }
         const token = jwt.sign({ id: user._id }, JWT_SECRET, { expiresIn: '7d' });
         return res.status(200).json({ token, user: { id: user._id, username: user.username, likedTracks: user.likedTracks } });
-    } catch (e) { return res.status(500).json({ message: 'Login execution failure.' }); }
+    } catch (e) { return res.status(500).json({ message: 'Authentication processing fault.' }); }
 });
 
 app.get('/api/auth/me', authenticateBearerToken, (req, res) => res.status(200).json(req.user));
@@ -116,7 +114,7 @@ app.get('/api/tracks', async (req, res) => {
         if (queryToken && queryToken.trim().length > 0) {
             const standardSearch = await ytSearch({ query: queryToken });
             if (standardSearch && standardSearch.videos) {
-                const poolSlice = standardSearch.videos.slice(0, 30).filter(v => (v.seconds || 0) >= 30);
+                const poolSlice = standardSearch.videos.slice(0, 35).filter(v => (v.seconds || 0) >= 30);
                 if (poolSlice.length > 0) {
                     const bulkOperations = poolSlice.map(video => {
                         return {
@@ -149,9 +147,9 @@ app.get('/api/tracks', async (req, res) => {
             };
         }
 
-        const feedCatalog = await Track.find(cond).sort({ _id: -1 }).limit(60);
+        const feedCatalog = await Track.find(cond).sort({ _id: -1 }).limit(50);
         return res.status(200).json(feedCatalog);
-    } catch (err) { return res.status(500).json({ message: 'Internal Server Error fetching track metadata.' }); }
+    } catch (err) { return res.status(500).json({ message: 'Search query engine error occurred.' }); }
 });
 
 app.post('/api/users/like', authenticateBearerToken, async (req, res) => {
@@ -163,7 +161,7 @@ app.post('/api/users/like', authenticateBearerToken, async (req, res) => {
         else user.likedTracks.splice(index, 1);
         await user.save();
         return res.status(200).json({ likedTracks: user.likedTracks });
-    } catch (e) { return res.status(500).json({ message: 'Interaction update exception.' }); }
+    } catch (e) { return res.status(500).json({ message: 'Like logging transaction failed.' }); }
 });
 
 app.post('/api/users/history', authenticateBearerToken, async (req, res) => {
@@ -174,9 +172,9 @@ app.post('/api/users/history', authenticateBearerToken, async (req, res) => {
         if (req.user.watchHistory.length > 30) req.user.watchHistory.pop();
         await req.user.save();
         return res.status(200).json({ watchHistory: req.user.watchHistory });
-    } catch (e) { return res.status(500).json({ message: 'History index logging failure.' }); }
+    } catch (e) { return res.status(500).json({ message: 'History routing layer broke.' }); }
 });
 
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 
-app.listen(PORT, () => console.log(`Melodify Core Operational Pipeline hosting live on: ${PORT}`));
+app.listen(PORT, () => console.log(`Melodify System Stream Active on Pipeline Port: ${PORT}`));
