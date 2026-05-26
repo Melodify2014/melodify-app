@@ -1,6 +1,7 @@
 /**
  * Melodify Ultimate Production Backend Gateway Server
- * Engineered with Advanced Content Delivery Safety & Anti-404 Validation
+ * Engineered for True Infinite Channel Scraping, Pagination, & Dynamic Producer Mapping
+ * Incorporates: High-Speed Concurrency, Bulk Writing Cache Matrix, & Anti-404 Image Sanitization
  */
 const express = require('express');
 const mongoose = require('mongoose');
@@ -18,7 +19,7 @@ const MONGO_URI = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/melodify';
 app.use(express.json());
 app.use(cors());
 
-// Serve static assets out of your public build directory
+// Serve static assets out of your public frontend build directory
 app.use(express.static(path.join(__dirname, 'public')));
 
 /**
@@ -41,34 +42,49 @@ const TrackSchema = new mongoose.Schema({
     youtubeId: { type: String, required: true, unique: true },
     type: { type: String, default: 'music' },
     tags: [{ type: String }]
-}, { timestamps: true });
+}, { timestamps: true }); // Tracks when records enter our cache matrix
 
 const User = mongoose.model('User', UserSchema);
 const Track = mongoose.model('Track', TrackSchema);
 
+/**
+ * DATABASE CONNECTION & PROGRAMMATIC RENDER RESET HOOK
+ */
 mongoose.connect(MONGO_URI)
-    .then(() => console.log('Connected to MongoDB Successfully.'))
+    .then(async () => {
+        console.log('Connected to MongoDB Successfully.');
+        
+        // Dynamic clean up loop for Render environment controls
+        if (process.env.RESET_DB === 'true') {
+            console.log('⚠️ RESET_DB flag detected. Clearing stale track cache...');
+            try {
+                await Track.deleteMany({});
+                console.log('✅ Stale track cache cleared successfully.');
+            } catch (resetErr) {
+                console.error('❌ Failed to clear track cache:', resetErr);
+            }
+        }
+    })
     .catch(err => console.error('Database Connection Error:', err));
 
 /**
  * ==========================================================================
- * UTILITY FUNCTIONS: THUMBNAIL VALIDATION
+ * UTILITY FUNCTIONS: THUMBNAIL VALIDATION SYSTEM
  * ==========================================================================
- * Catch and rewrite broken image configurations to prevent breaking frontend layouts.
+ * Catch and rewrite broken hqdefault configuration layers to prevent browser 404s
  */
 const getSecureThumbnail = (video) => {
-    if (!video.videoId) {
-        return 'https://images.unsplash.com/photo-1614680376593-902f74fa0d41?q=80&w=500&auto=format&fit=crop'; 
-    }
+    const fallbackNeonImage = 'https://images.unsplash.com/photo-1614680376593-902f74fa0d41?q=80&w=500&auto=format&fit=crop';
     
-    // Check if the scraper properties are missing or corrupted
-    const rawImage = video.image || video.thumbnail || video.hqdefault;
+    if (!video.videoId) return fallbackNeonImage;
+    
+    const rawImage = video.image || video.thumbnail;
     if (!rawImage || rawImage.includes('pixel') || rawImage.includes('blank')) {
-        // Fallback to standard medium quality player backgrounds (virtually never 404s)
+        // Fallback to medium quality standard backgrounds which always generate safely
         return `https://img.youtube.com/vi/${video.videoId}/mqdefault.jpg`; 
     }
     
-    // If it's explicitly passing an unverified hqdefault string, clean it up to mqdefault for stability
+    // Convert problematic high-definition strings to fast medium resolution links
     return rawImage.replace('hqdefault.jpg', 'mqdefault.jpg');
 };
 
@@ -130,7 +146,7 @@ app.get('/api/auth/me', parseBearerAuthenticationToken, (req, res) => {
 
 /**
  * ==========================================================================
- * DYNAMIC MULTI-PAGE CHANNELS TRACK FINDER ENDPOINT (OPTIMIZED)
+ * DYNAMIC MULTI-PAGE CHANNELS TRACK FINDER ENDPOINT (CONCURRENT OPS)
  * ==========================================================================
  */
 app.get('/api/tracks', async (req, res) => {
@@ -154,6 +170,7 @@ app.get('/api/tracks', async (req, res) => {
                     const baseFeed = await ytSearch({ channelId: matchedChannel.id });
                     if (baseFeed && baseFeed.videos) compiledVideos = [...baseFeed.videos];
 
+                    // Fire text requests concurrently using multi-thread asynchronous resolving
                     const searchPromises = deepScrapePhrases.map(phrase => ytSearch({ query: phrase }));
                     const searchResults = await Promise.all(searchPromises);
 
@@ -167,6 +184,7 @@ app.get('/api/tracks', async (req, res) => {
                     compiledVideos.forEach(v => { uniqueVideoMap[v.videoId] = v; });
                     const finalScrapedPool = Object.values(uniqueVideoMap).filter(v => (v.seconds || 0) > 40);
 
+                    // Execute a rapid bulk injection cluster to MongoDB
                     if (finalScrapedPool.length > 0) {
                         const bulkOperations = finalScrapedPool.map(video => {
                             const cleanTitle = video.title.replace(/[\(\[].*?[\)\]]/g, '').trim();
@@ -191,7 +209,7 @@ app.get('/api/tracks', async (req, res) => {
                     }
                 }
             } catch (err) { 
-                console.error("Deep pipeline tracking execution error:", err); 
+                console.error("Deep cache pipeline bypass details:", err); 
             }
         } else if (queryToken && queryToken.trim().length > 0) {
             try {
@@ -221,10 +239,10 @@ app.get('/api/tracks', async (req, res) => {
                         await Track.bulkWrite(bulkOperations);
                     }
                 }
-            } catch (e) { console.error("Standard system engine tracking error:", e); }
+            } catch (e) { console.error("Standard system search error:", e); }
         }
 
-        // DATABASE GATEWAY MATRICES
+        // OUTPUT ENGINE PARSING BASE
         let queryCondition = {};
         if (producerTarget) {
             queryCondition = { producer: { $regex: producerTarget, $options: 'i' } };
