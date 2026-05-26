@@ -1,5 +1,5 @@
 /**
- * Melodify Client Pipeline Engine & Audio Core Controller — Loop Optimized
+ * Melodify Client Pipeline Engine & Audio Core Controller
  */
 document.addEventListener('DOMContentLoaded', () => {
     const API_URL = window.location.origin;
@@ -8,7 +8,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentAuthMode = 'login'; 
     let activeTrackContext = null;
     let localCacheTracks = [];
-    let isLoopActive = false; // Internal Audio Loop Tracking Switch
+    let isLoopActive = false; 
 
     let sessionUserToken = localStorage.getItem('melodify_jwt');
     let authenticatedUserData = null;
@@ -52,7 +52,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     /**
-     * Data Rendering and High-Availability Image Handling Layers
+     * Data Rendering and Compact Layout Layers
      */
     async function executeCatalogSynchronization(queryParameters = '') {
         try {
@@ -152,7 +152,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function handleEngineStateChange(event) {
-        // Loop State Trapping Logic Engine Block
+        // Automatic Track Loop Execution Block
         if (event.data === YT.PlayerState.ENDED) {
             if (isLoopActive) {
                 ytPlayerInstance.seekTo(0);
@@ -172,12 +172,12 @@ document.addEventListener('DOMContentLoaded', () => {
         dockPlayBtn.textContent = event.data === YT.PlayerState.PLAYING ? '⏸' : '▶';
     }
 
-    // Toggle Loop State Controller Configuration
+    // Toggle Loop State Event Setup
     dockLoopBtn.addEventListener('click', () => {
         isLoopActive = !isLoopActive;
         if (isLoopActive) {
             dockLoopBtn.classList.add('active-loop');
-            dockLoopBtn.style.color = '#1db954'; // Glows green like Spotify when enabled
+            dockLoopBtn.style.color = '#1db954'; 
         } else {
             dockLoopBtn.classList.remove('active-loop');
             dockLoopBtn.style.color = '#ffffff';
