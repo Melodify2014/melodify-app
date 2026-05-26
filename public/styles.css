@@ -47,7 +47,7 @@ body {
 }
 #search-btn:hover { background-color: var(--brand-hover); }
 
-/* Main Interface Framework */
+/* Main Layout Setup */
 .main-layout { display: flex; min-height: calc(100vh - 80px); }
 .sidebar-navigation { width: 240px; background-color: var(--bg-accent); padding: 20px 10px; border-right: 1px solid var(--border-line); }
 .nav-menu { display: flex; flex-direction: column; gap: 8px; }
@@ -61,7 +61,7 @@ body {
 .content-container { flex: 1; padding: 40px; margin-bottom: 120px; }
 .feed-title { margin-top: 0; font-size: 1.8rem; margin-bottom: 30px; }
 
-/* The Responsive Scaling Fluid Grid */
+/* Grid Fluid Layer */
 .grid-layout {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
@@ -127,7 +127,12 @@ body {
 .dock-meta { overflow: hidden; }
 .dock-txt-title { font-size: 0.9rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .dock-txt-producer { font-size: 0.75rem; color: var(--txt-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* Control Buttons Configurations */
 .control-circle { background-color: white; color: black; border: none; width: 40px; height: 40px; border-radius: 50%; font-size: 0.95rem; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+.control-secondary-btn { background: none; border: none; font-size: 1.1rem; cursor: pointer; color: #ffffff; padding: 5px; transition: color 0.2s, transform 0.1s; }
+.control-secondary-btn:hover { transform: scale(1.1); }
+
 .volume-box { display: flex; align-items: center; gap: 10px; width: 20%; justify-content: flex-end; }
 #volume-slider { accent-color: var(--brand-color); cursor: pointer; }
 
