@@ -1,444 +1,76 @@
-/* ==========================================================================
-   SYSTEM ARCHITECTURE AND THEME ROOT VARIABLES
-   ========================================================================== */
-:root {
-    --bg-main: #09090c;
-    --bg-sidebar: #101014;
-    --bg-card: #14141a;
-    --bg-deck: #0d0d11;
-    --accent-primary: #ff0055;
-    --accent-green: #00ffaa;
-    --txt-main: #ffffff;
-    --txt-dim: #7f7f8e;
-    --border-color: #1f1f27;
-}
-
-* {
-    box-sizing: border-box;
-    margin: 0;
-    padding: 0;
-}
-
-body {
-    background-color: var(--bg-main);
-    color: var(--txt-main);
-    font-family: 'Inter', sans-serif;
-    overflow: hidden;
-    height: 100vh;
-}
-
-/* ==========================================================================
-   VIEWPORT ENGINE LAYOUT MAPPING (Grid Configuration)
-   ========================================================================== */
-#app-viewport {
-    display: grid;
-    grid-template-columns: 240px 1fr;
-    grid-template-rows: 70px 1fr 90px;
-    grid-template-areas: 
-        "side top"
-        "side main"
-        "deck deck";
-    height: 100vh;
-    width: 100vw;
-}
-
-/* Left Workspace Panel */
-.sidebar {
-    grid-area: side;
-    background-color: var(--bg-sidebar);
-    border-right: 1px solid var(--border-color);
-    padding: 24px;
+/* Container framework organizing your items into a responsive grid */
+#tracks-container {
     display: flex;
-    flex-direction: column;
-    gap: 32px;
+    flex-wrap: wrap;
+    gap: 20px;
+    padding: 20px;
+    justify-content: center;
+    background-color: #121212;
 }
 
-.brand-wrapper {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    color: var(--accent-primary);
-}
-
-.brand-wrapper h1 {
-    font-size: 22px;
-    font-weight: 800;
-    color: var(--txt-main);
-}
-
-.menu-group {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-}
-
-.menu-item {
-    background: none;
-    border: none;
-    color: var(--txt-dim);
-    font-size: 14px;
-    font-weight: 600;
-    text-align: left;
-    padding: 12px 16px;
-    border-radius: 8px;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    gap: 14px;
-    transition: all 0.2s ease;
-}
-
-.menu-item i {
-    font-size: 16px;
-    width: 20px;
-}
-
-.menu-item:hover {
-    color: var(--txt-main);
-    background-color: rgba(255, 255, 255, 0.03);
-}
-
-.menu-item.active {
-    background-color: var(--accent-primary);
-    color: var(--txt-main);
-}
-
-/* Top Navigation Interface bar */
-.topbar {
-    grid-area: top;
-    background-color: var(--bg-main);
-    border-bottom: 1px solid var(--border-color);
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0 32px;
-}
-
-.search-container {
-    position: relative;
-    width: 400px;
-}
-
-.search-container i {
-    position: absolute;
-    left: 14px;
-    top: 50%;
-    transform: translateY(-50%);
-    color: var(--txt-dim);
-}
-
-.search-container input {
-    width: 100%;
-    background-color: var(--bg-sidebar);
-    border: 1px solid var(--border-color);
-    border-radius: 20px;
-    padding: 10px 16px 10px 42px;
-    color: var(--txt-main);
-    font-family: inherit;
-    font-size: 14px;
-    outline: none;
-}
-
-.search-container input:focus {
-    border-color: var(--accent-primary);
-}
-
-.user-profile-widget {
-    display: flex;
-    align-items: center;
-    gap: 14px;
-    font-size: 14px;
-    font-weight: 600;
-}
-
-.btn-logout {
-    background-color: #1f1f27;
-    border: none;
-    color: var(--txt-main);
-    padding: 6px 14px;
-    border-radius: 6px;
-    cursor: pointer;
-    font-size: 12px;
-    font-weight: 600;
-}
-
-.btn-logout:hover {
-    background-color: #2b2b36;
-}
-
-/* Main Dashboard Streaming Matrix Workspace */
-.main-content-workspace {
-    grid-area: main;
-    padding: 32px;
-    overflow-y: auto;
-    background-color: var(--bg-main);
-}
-
-.feed-header-wrapper {
-    margin-bottom: 24px;
-}
-
-.feed-title-context h2 {
-    font-size: 26px;
-    font-weight: 800;
-}
-
-/* ==========================================================================
-   DYNAMIC MUSIC RENDER CARDS GRID SETUP
-   ========================================================================== */
-.tracks-grid-layout {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-    gap: 24px;
-}
-
+/* Individual Card Blocks */
 .track-card {
-    background-color: var(--bg-card);
+    background: #1e1e1e;
     border-radius: 12px;
-    padding: 14px;
-    cursor: pointer;
-    transition: transform 0.2s ease, background-color 0.2s ease;
-    border: 1px solid transparent;
+    overflow: hidden;
+    width: 280px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+    transition: transform 0.2s ease;
 }
 
 .track-card:hover {
     transform: translateY(-4px);
-    background-color: #1a1a22;
-    border-color: #2a2a35;
 }
 
-.card-thumb-wrap {
+/* Forces thumbnails to stay within boundaries cleanly */
+.thumbnail-wrapper {
     position: relative;
     width: 100%;
-    aspect-ratio: 1 / 1;
-    border-radius: 8px;
-    overflow: hidden;
-    margin-bottom: 12px;
-    background-color: #050507;
+    aspect-ratio: 16 / 9;
+    background-color: #000;
 }
 
-.card-thumb-wrap img {
+.track-thumb {
     width: 100%;
     height: 100%;
     object-fit: cover;
+    display: block;
 }
 
-.card-play-overlay {
+/* Audio interface elements placement definitions */
+.play-overlay-btn {
     position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background-color: rgba(0, 0, 0, 0.5);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    opacity: 0;
-    transition: opacity 0.2s ease;
-}
-
-.card-play-overlay i {
-    font-size: 24px;
-    color: var(--txt-main);
-}
-
-.track-card:hover .card-play-overlay {
-    opacity: 1;
-}
-
-.card-badge {
-    position: absolute;
-    top: 8px;
-    right: 8px;
-    background-color: var(--accent-primary);
+    bottom: 10px;
+    right: 10px;
+    background: #1db954;
     color: white;
-    font-size: 10px;
-    font-weight: 800;
-    padding: 3px 8px;
-    border-radius: 4px;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-}
-
-.track-card h4 {
-    font-size: 14px;
-    font-weight: 700;
-    margin-bottom: 4px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.card-meta-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-}
-
-.card-meta-row p {
-    font-size: 12px;
-    color: var(--txt-dim);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    max-width: 60%;
-}
-
-.status-action-tag {
-    font-size: 11px;
-    font-weight: 700;
-    color: var(--accent-green);
-    border: 1px solid rgba(0, 255, 170, 0.2);
-    padding: 1px 6px;
-    border-radius: 4px;
-    background-color: rgba(0, 255, 170, 0.05);
-}
-
-/* ==========================================================================
-   MASTER AUDIO DECK PIECE (Footer Controller System)
-   ========================================================================== */
-.master-hardware-deck {
-    grid-area: deck;
-    background-color: var(--bg-deck);
-    border-top: 1px solid var(--border-color);
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0 32px;
-    z-index: 100;
-}
-
-.deck-metadata-cluster {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    width: 30%;
-}
-
-#player-thumb {
-    width: 56px;
-    height: 56px;
-    border-radius: 6px;
-    object-fit: cover;
-    background-color: var(--bg-card);
-    opacity: 0.3;
-    transition: opacity 0.3s ease;
-}
-
-.deck-text-node h3 {
-    font-size: 14px;
-    font-weight: 700;
-    margin-bottom: 2px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.deck-text-node p {
-    font-size: 12px;
-    color: var(--txt-dim);
-}
-
-.deck-timeline-core {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 8px;
-    width: 40%;
-}
-
-.deck-controls-row {
-    display: flex;
-    align-items: center;
-    gap: 24px;
-}
-
-.deck-btn {
-    background: none;
     border: none;
-    color: var(--txt-dim);
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
     font-size: 16px;
     cursor: pointer;
-    transition: color 0.2s ease;
-}
-
-.deck-btn:hover {
-    color: var(--txt-main);
-}
-
-.playback-toggle-node {
-    background-color: var(--txt-main);
-    color: var(--bg-main);
-    width: 34px;
-    height: 34px;
-    border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.5);
 }
 
-.playback-toggle-node:hover {
-    transform: scale(1.05);
-    background-color: #f0f0f0;
-    color: var(--bg-main);
+.track-details {
+    padding: 15px;
+    color: #fff;
 }
 
-.progress-bar-container {
-    width: 100%;
-    display: flex;
-    align-items: center;
+.track-title {
+    font-size: 1rem;
+    margin: 0 0 5px 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
-.progress-bar {
-    width: 100%;
-    height: 4px;
-    background-color: #2a2a35;
-    border-radius: 2px;
-    cursor: pointer;
-    position: relative;
-}
-
-.progress-filled {
-    width: 0%;
-    height: 100%;
-    background-color: var(--txt-main);
-    border-radius: 2px;
-    position: absolute;
-    left: 0;
-    top: 0;
-}
-
-.progress-bar:hover .progress-filled {
-    background-color: var(--accent-primary);
-}
-
-.deck-utility-bundle {
-    display: flex;
-    align-items: center;
-    justify-content: flex-end;
-    gap: 16px;
-    width: 30%;
-}
-
-/* Completely detach native YouTube frame from visibility space */
-#yt-player-container {
-    position: absolute;
-    bottom: -100px;
-    left: -100px;
-    width: 1px;
-    height: 1px;
-    pointer-events: none;
-    opacity: 0;
-}
-
-/* ==========================================================================
-   DRIFT SPECIAL AMBIENCE MODES
-   ========================================================================== */
-body.drift-active {
-    animation: backgroundPulse 4s infinite alternate;
-}
-
-@keyframes backgroundPulse {
-    0% { background-color: #09090c; }
-    100% { background-color: #12050b; }
+.track-producer {
+    font-size: 0.85rem;
+    color: #b3b3b3;
+    margin: 0;
 }
