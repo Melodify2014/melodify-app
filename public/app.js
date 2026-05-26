@@ -1,5 +1,5 @@
 /**
- * Melodify Client Pipeline Engine & Audio Core Controller
+ * Melodify Client Pipeline Engine & Audio Core Controller — Loop Optimized
  */
 document.addEventListener('DOMContentLoaded', () => {
     const API_URL = window.location.origin;
@@ -8,6 +8,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentAuthMode = 'login'; 
     let activeTrackContext = null;
     let localCacheTracks = [];
+    let isLoopActive = false; // Internal Audio Loop Tracking Switch
 
     let sessionUserToken = localStorage.getItem('melodify_jwt');
     let authenticatedUserData = null;
@@ -29,6 +30,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const dockTitle = document.getElementById('dock-title');
     const dockProducer = document.getElementById('dock-producer');
     const dockPlayBtn = document.getElementById('dock-play-btn');
+    const dockLoopBtn = document.getElementById('dock-loop-btn');
     const dockLikeBtn = document.getElementById('dock-like-btn');
     const volumeSlider = document.getElementById('volume-slider');
 
@@ -76,7 +78,6 @@ document.addEventListener('DOMContentLoaded', () => {
             const isLiked = authenticatedUserData && authenticatedUserData.likedTracks.includes(track._id);
             const videoId = track.youtubeId || '';
 
-            // Multi-Stage Image Fallback Pipeline
             const primaryThumb = `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
             const fallbackThumb = `https://img.youtube.com/vi/${videoId}/mqdefault.jpg`;
             const backupAesthetic = `https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?q=80&w=500`;
@@ -151,6 +152,15 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function handleEngineStateChange(event) {
+        // Loop State Trapping Logic Engine Block
+        if (event.data === YT.PlayerState.ENDED) {
+            if (isLoopActive) {
+                ytPlayerInstance.seekTo(0);
+                ytPlayerInstance.playVideo();
+                return;
+            }
+        }
+
         const gridPlayButtons = document.querySelectorAll('.play-overlay-btn');
         gridPlayButtons.forEach(b => {
             if (activeTrackContext && b.getAttribute('data-id') === activeTrackContext._id) {
@@ -161,6 +171,18 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         dockPlayBtn.textContent = event.data === YT.PlayerState.PLAYING ? '⏸' : '▶';
     }
+
+    // Toggle Loop State Controller Configuration
+    dockLoopBtn.addEventListener('click', () => {
+        isLoopActive = !isLoopActive;
+        if (isLoopActive) {
+            dockLoopBtn.classList.add('active-loop');
+            dockLoopBtn.style.color = '#1db954'; // Glows green like Spotify when enabled
+        } else {
+            dockLoopBtn.classList.remove('active-loop');
+            dockLoopBtn.style.color = '#ffffff';
+        }
+    });
 
     dockPlayBtn.addEventListener('click', () => {
         if (!activeTrackContext) return;
@@ -187,9 +209,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (res.ok) {
                 authenticatedUserData = await res.json();
                 renderUserAccountInterface();
-            } else {
-                clearSessionData();
-            }
+            } else { clearSessionData(); }
         } catch (e) { clearSessionData(); }
     }
 
