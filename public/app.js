@@ -1,5 +1,5 @@
 /**
- * Melodify Full-Scale Client UI Manager & Audio Pipeline Controller
+ * Melodify Client Pipeline Engine & Audio Core Controller
  */
 document.addEventListener('DOMContentLoaded', () => {
     const API_URL = window.location.origin;
@@ -12,7 +12,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let sessionUserToken = localStorage.getItem('melodify_jwt');
     let authenticatedUserData = null;
 
-    // DOM Selectors
+    // Core Interface UI Mappings
     const tracksContainer = document.getElementById('tracks-container');
     const searchInput = document.getElementById('search-input');
     const searchBtn = document.getElementById('search-btn');
@@ -23,7 +23,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const authForm = document.getElementById('auth-form');
     const authToggleLink = document.getElementById('auth-toggle-link');
     
-    // Player Dock Selectors
+    // Bottom Audio Bar Elements
     const playerDock = document.getElementById('player-dock');
     const dockThumb = document.getElementById('dock-thumb');
     const dockTitle = document.getElementById('dock-title');
@@ -32,7 +32,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const dockLikeBtn = document.getElementById('dock-like-btn');
     const volumeSlider = document.getElementById('volume-slider');
 
-    // Setup Hidden Anchor Frame for YouTube Embed Operations
+    // Mount Hidden YouTube Audio Frame Node
     const hiddenPlayerDiv = document.createElement('div');
     hiddenPlayerDiv.id = 'melodify-hidden-hardware-engine';
     hiddenPlayerDiv.style.display = 'none';
@@ -44,31 +44,29 @@ document.addEventListener('DOMContentLoaded', () => {
             playerVars: { 'playsinline': 1, 'controls': 0, 'disablekb': 1 },
             events: {
                 'onStateChange': handleEngineStateChange,
-                'onError': (e) => console.error("YouTube Engine Exception Code:", e.data)
+                'onError': (e) => console.error("YouTube Engine Stream Interruption:", e.data)
             }
         });
     };
 
     /**
-     * ==========================================================================
-     * CATALOG GRID RENDER MATRIX WITH MULTI-STAGE THUMBNAIL CACHING
-     * ==========================================================================
+     * Data Rendering and High-Availability Image Handling Layers
      */
     async function executeCatalogSynchronization(queryParameters = '') {
         try {
-            tracksContainer.innerHTML = '<div class="loading-state">Synchronizing Sound Matrices...</div>';
+            tracksContainer.innerHTML = '<div class="loading-state">Synchronizing track arrays...</div>';
             const response = await fetch(`${API_URL}/api/tracks${queryParameters}`);
             localCacheTracks = await response.json();
             renderTrackGrid(localCacheTracks);
         } catch (err) {
-            tracksContainer.innerHTML = '<div class="error-state">Interface loading sequence interrupted.</div>';
+            tracksContainer.innerHTML = '<div class="error-state">Interface connection sequence dropped.</div>';
         }
     }
 
     function renderTrackGrid(tracksList) {
         tracksContainer.innerHTML = '';
         if (!tracksList || tracksList.length === 0) {
-            tracksContainer.innerHTML = '<div class="empty-state">No matching sound waves found. Try another search.</div>';
+            tracksContainer.innerHTML = '<div class="empty-state">No matching sounds detected. Please run a new query.</div>';
             return;
         }
 
@@ -78,7 +76,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const isLiked = authenticatedUserData && authenticatedUserData.likedTracks.includes(track._id);
             const videoId = track.youtubeId || '';
 
-            // Thumbnail Multi-stage Fallback Engine Configurations
+            // Multi-Stage Image Fallback Pipeline
             const primaryThumb = `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
             const fallbackThumb = `https://img.youtube.com/vi/${videoId}/mqdefault.jpg`;
             const backupAesthetic = `https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?q=80&w=500`;
@@ -99,7 +97,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         <h3 class="track-title" title="${titleParsed}">${titleParsed}</h3>
                         <p class="track-producer" title="${producerParsed}">${producerParsed}</p>
                         <div class="card-action-bar">
-                            <button class="card-like-btn ${isLiked ? 'liked' : ''}" data-id="${track._id}">
+                            <button class="card-like-btn" data-id="${track._id}">
                                 ${isLiked ? '❤️' : '♡'}
                             </button>
                         </div>
@@ -129,11 +127,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    /**
-     * ==========================================================================
-     * AUDIO ENGINE CONTROLS
-     * ==========================================================================
-     */
     function toggleMediaStream(track) {
         if (!ytPlayerInstance || typeof ytPlayerInstance.loadVideoById !== 'function') return;
 
@@ -159,7 +152,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function handleEngineStateChange(event) {
         const gridPlayButtons = document.querySelectorAll('.play-overlay-btn');
-        
         gridPlayButtons.forEach(b => {
             if (activeTrackContext && b.getAttribute('data-id') === activeTrackContext._id) {
                 b.textContent = event.data === YT.PlayerState.PLAYING ? '⏸' : '▶';
@@ -167,12 +159,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 b.textContent = '▶';
             }
         });
-
-        if (event.data === YT.PlayerState.PLAYING) {
-            dockPlayBtn.textContent = '⏸';
-        } else {
-            dockPlayBtn.textContent = '▶';
-        }
+        dockPlayBtn.textContent = event.data === YT.PlayerState.PLAYING ? '⏸' : '▶';
     }
 
     dockPlayBtn.addEventListener('click', () => {
@@ -189,9 +176,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     /**
-     * ==========================================================================
-     * SESSION MANAGEMENT & IDENTITY CONTROLS
-     * ==========================================================================
+     * Session Authentication Management Layer
      */
     async function verifyUserSession() {
         if (!sessionUserToken) return;
@@ -205,9 +190,7 @@ document.addEventListener('DOMContentLoaded', () => {
             } else {
                 clearSessionData();
             }
-        } catch (e) {
-            clearSessionData();
-        }
+        } catch (e) { clearSessionData(); }
     }
 
     function renderUserAccountInterface() {
@@ -241,7 +224,6 @@ document.addEventListener('DOMContentLoaded', () => {
         currentAuthMode = currentAuthMode === 'login' ? 'register' : 'login';
         document.getElementById('modal-headline').textContent = currentAuthMode === 'login' ? 'Sign In to Melodify' : 'Create Account';
         document.getElementById('auth-submit-action').textContent = currentAuthMode === 'login' ? 'Continue' : 'Register Account';
-        authToggleLink.textContent = currentAuthMode === 'login' ? 'Register' : 'Sign In';
         document.getElementById('auth-toggle-prompt').innerHTML = currentAuthMode === 'login' ? `Don't have an account? <a href="#" id="auth-toggle-link">Register</a>` : `Already a member? <a href="#" id="auth-toggle-link">Sign In</a>`;
     });
 
@@ -264,19 +246,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 await verifyUserSession();
                 closeModal();
                 authForm.reset();
-            } else {
-                alert(data.message || "Authentication anomaly occurred.");
-            }
-        } catch (err) {
-            alert("Network dropped during authentication routing.");
-        }
+            } else { alert(data.message || "Authentication rejected."); }
+        } catch (err) { alert("Authorization network path timed out."); }
     });
 
-    /**
-     * ==========================================================================
-     * METRIC REPOS & SEARCH DISPATCHERS
-     * ==========================================================================
-     */
     async function toggleTrackLikeStatus(trackId) {
         if (!sessionUserToken) return openModal();
         try {
@@ -318,9 +291,7 @@ document.addEventListener('DOMContentLoaded', () => {
         dockLikeBtn.style.color = isLiked ? '#1db954' : '#fff';
     }
 
-    dockLikeBtn.addEventListener('click', () => {
-        if (activeTrackContext) toggleTrackLikeStatus(activeTrackContext._id);
-    });
+    dockLikeBtn.addEventListener('click', () => { if (activeTrackContext) toggleTrackLikeStatus(activeTrackContext._id); });
 
     const executeSearchAction = () => {
         const query = searchInput.value.trim();
