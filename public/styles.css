@@ -1,76 +1,215 @@
-/* Container framework organizing your items into a responsive grid */
-#tracks-container {
+/* Core Custom Visual Environment Variables */
+:root {
+    --bg-primary: #121212;
+    --bg-secondary: #181818;
+    --bg-accent: #070707;
+    --brand-color: #1db954;
+    --brand-hover: #1ed760;
+    --txt-main: #ffffff;
+    --txt-muted: #a7a7a7;
+    --border-line: #282828;
+}
+
+body {
+    margin: 0;
+    padding: 0;
+    background-color: var(--bg-primary);
+    color: var(--txt-main);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    overflow-x: hidden;
+}
+
+/* Header & Search Infrastructure */
+.app-header {
+    background-color: var(--bg-accent);
+    padding: 15px 30px;
     display: flex;
-    flex-wrap: wrap;
-    gap: 20px;
-    padding: 20px;
-    justify-content: center;
-    background-color: #121212;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid var(--border-line);
+    position: sticky;
+    top: 0;
+    z-index: 100;
 }
 
-/* Individual Card Blocks */
+.brand-section {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.logo-icon { font-size: 1.8rem; }
+.app-title { font-size: 1.4rem; margin: 0; font-weight: 800; }
+
+.search-wrapper {
+    display: flex;
+    gap: 10px;
+    width: 100%;
+    max-width: 450px;
+}
+
+#search-input {
+    flex: 1;
+    background-color: #242424;
+    border: 1px solid transparent;
+    padding: 12px 20px;
+    border-radius: 30px;
+    color: white;
+    font-size: 0.9rem;
+    outline: none;
+}
+
+#search-input:focus { border-color: var(--brand-color); }
+
+#search-btn {
+    background-color: var(--brand-color);
+    color: white;
+    border: none;
+    padding: 0 24px;
+    border-radius: 30px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+/* Unified Main Interface Splitting Layouts */
+.main-layout {
+    display: flex;
+    min-height: calc(100vh - 80px);
+}
+
+.sidebar-navigation {
+    width: 240px;
+    background-color: var(--bg-accent);
+    padding: 20px 10px;
+    border-right: 1px solid var(--border-line);
+}
+
+.nav-menu { display: flex; flex-direction: column; gap: 8px; }
+
+.menu-item {
+    color: var(--txt-muted);
+    text-decoration: none;
+    padding: 12px 16px;
+    border-radius: 6px;
+    font-weight: 600;
+    transition: all 0.2s;
+}
+
+.menu-item:hover, .menu-item.active {
+    background-color: var(--bg-secondary);
+    color: var(--txt-main);
+}
+
+.content-container { flex: 1; padding: 40px; margin-bottom: 100px; }
+.feed-title { margin-top: 0; font-size: 1.8rem; margin-bottom: 30px; }
+
+/* Grid Layout Grid Engine */
+.grid-layout {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 25px;
+    width: 100%;
+}
+
+/* Card Block Architectures */
 .track-card {
-    background: #1e1e1e;
-    border-radius: 12px;
-    overflow: hidden;
-    width: 280px;
-    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
-    transition: transform 0.2s ease;
+    background: var(--bg-secondary);
+    border-radius: 10px;
+    padding: 16px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+    transition: background-color 0.3s;
 }
 
-.track-card:hover {
-    transform: translateY(-4px);
-}
+.track-card:hover { background: #242424; }
 
-/* Forces thumbnails to stay within boundaries cleanly */
 .thumbnail-wrapper {
     position: relative;
     width: 100%;
-    aspect-ratio: 16 / 9;
+    aspect-ratio: 16/9;
+    border-radius: 6px;
+    overflow: hidden;
     background-color: #000;
+    margin-bottom: 12px;
 }
 
-.track-thumb {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    display: block;
-}
+.track-thumb { width: 100%; height: 100%; object-fit: cover; }
 
-/* Audio interface elements placement definitions */
 .play-overlay-btn {
     position: absolute;
-    bottom: 10px;
-    right: 10px;
-    background: #1db954;
+    bottom: 8px;
+    right: 8px;
+    background-color: var(--brand-color);
     color: white;
     border: none;
+    width: 44px;
+    height: 44px;
     border-radius: 50%;
-    width: 40px;
-    height: 40px;
-    font-size: 16px;
+    font-size: 1.1rem;
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.5);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.5);
 }
 
-.track-details {
-    padding: 15px;
-    color: #fff;
+.track-title { font-size: 1rem; margin: 0 0 6px 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.track-producer { font-size: 0.85rem; color: var(--txt-muted); margin: 0 0 12px 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.card-action-bar { display: flex; justify-content: flex-end; }
+.card-like-btn { background: none; border: none; font-size: 1.2rem; cursor: pointer; color: var(--txt-muted); }
+.card-like-btn.liked { color: #f25c5c; }
+
+/* Modal Box Structures */
+.modal-overlay {
+    position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+    background: rgba(0,0,0,0.8); z-index: 1000; display: flex; align-items: center; justify-content: center;
 }
 
-.track-title {
-    font-size: 1rem;
-    margin: 0 0 5px 0;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+.modal-overlay.hidden { display: none !important; }
+
+.modal-box {
+    background-color: var(--bg-secondary); width: 100%; max-width: 400px;
+    padding: 30px; border-radius: 12px; border: 1px solid var(--border-line);
 }
 
-.track-producer {
-    font-size: 0.85rem;
-    color: #b3b3b3;
-    margin: 0;
+.modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; }
+.modal-header h3 { margin: 0; font-size: 1.4rem; }
+.close-modal { background: none; border: none; color: white; font-size: 1.8rem; cursor: pointer; }
+
+.modal-form { display: flex; flex-direction: column; gap: 16px; }
+.input-group { display: flex; flex-direction: column; gap: 6px; }
+.input-group label { font-size: 0.85rem; color: var(--txt-muted); font-weight: 600; }
+.input-group input { background: #242424; border: 1px solid var(--border-line); padding: 12px; border-radius: 6px; color: white; outline: none; }
+
+.auth-submit-btn { background-color: var(--brand-color); color: white; border: none; padding: 14px; border-radius: 6px; font-weight: 700; cursor: pointer; margin-top: 10px; }
+.modal-footer { text-align: center; margin-top: 20px; font-size: 0.9rem; color: var(--txt-muted); }
+.modal-footer a { color: var(--brand-color); text-decoration: none; }
+
+/* Dynamic Footer Media Dock Layouts */
+.persistent-player-dock {
+    position: fixed; bottom: 0; left: 0; width: 100vw; background-color: var(--bg-accent);
+    border-top: 1px solid var(--border-line); padding: 15px 40px; box-sizing: border-box; z-index: 500;
 }
+
+.persistent-player-dock.hidden { display: none !important; }
+.dock-content { display: flex; justify-content: space-between; align-items: center; max-width: 1300px; margin: 0 auto; }
+
+.active-track-info { display: flex; align-items: center; gap: 15px; width: 30%; }
+.dock-track-img { width: 56px; aspect-ratio: 16/9; object-fit: cover; border-radius: 4px; }
+.dock-meta { overflow: hidden; }
+.dock-txt-title { font-size: 0.95rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-shadow: none; text-overflow: ellipsis; }
+.dock-txt-producer { font-size: 0.8rem; color: var(--txt-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.control-circle {
+    background-color: white; color: black; border: none; width: 42px; height: 42px;
+    border-radius: 50%; font-size: 1rem; cursor: pointer; display: flex; align-items: center; justify-content: center;
+}
+
+.volume-box { display: flex; align-items: center; gap: 10px; width: 20%; justify-content: flex-end; }
+#volume-slider { accent-color: var(--brand-color); cursor: pointer; }
+
+/* Layout State Feedbacks */
+.loading-state, .empty-state, .error-state { padding: 80px 0; text-align: center; color: var(--txt-muted); font-size: 1.1rem; width: 100%; grid-column: 1/-1; }
+.nav-btn { background: none; border: 1px solid white; color: white; padding: 8px 18px; border-radius: 20px; font-weight: 600; cursor: pointer; }
+.profile-badge { display: flex; align-items: center; gap: 15px; }
+.logout-btn { background: none; border: none; color: #ff5c5c; cursor: pointer; font-weight: 600; }
