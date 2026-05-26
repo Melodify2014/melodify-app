@@ -62,11 +62,46 @@ body {
 .feed-title { margin-top: 0; font-size: 1.8rem; margin-bottom: 30px; }
 
 /* Grid Fluid Layer */
+/* Container holding the track cards */
 .grid-layout {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-    gap: 20px;
+    /* This forces the cards into neat columns instead of stacking vertically at full width */
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 16px;
     width: 100%;
+    padding: 10px 0;
+}
+
+/* Individual track card dimensions */
+.track-card {
+    background: var(--bg-secondary, #181818); 
+    border-radius: 8px; 
+    padding: 12px;
+    box-sizing: border-box;
+    display: flex; 
+    flex-direction: column;
+    /* Caps the maximum horizontal size of a single card unit */
+    max-width: 220px; 
+}
+
+/* Constrains the image window wrapper */
+.thumbnail-wrapper {
+    position: relative; 
+    width: 100%; 
+    aspect-ratio: 16/9;
+    border-radius: 6px; 
+    overflow: hidden; 
+    background-color: #1a1a1a; 
+    margin-bottom: 10px;
+}
+
+/* Sharp, responsive thumbnail image rules */
+.track-thumb { 
+    width: 100%; 
+    height: 100%; 
+    object-fit: cover; 
+    display: block; 
+    max-height: 120px; /* Hard ceiling to prevent sudden vertical blowing up */
 }
 
 /* Track Card Containment Architecture */
