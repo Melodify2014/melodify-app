@@ -3,112 +3,54 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Melodify — Audio Stream Network</title>
-    <link rel="stylesheet" href="style.css">
+    <title>Melodify — Audio Streaming</title>
+    <link rel="stylesheet" href="./style.css">
 </head>
 <body>
 
-    <header class="app-header">
-        <div class="brand-section" id="brand-home-btn">
-            <span class="logo-icon">⚡</span>
-            <h1 class="app-title">Melodify</h1>
-        </div>
+    <div class="container">
+        <h1 class="brand-title">Melodify</h1>
         
-        <div class="search-wrapper">
-            <input type="text" id="search-input" placeholder="Search tracks or producers...">
-            <button id="search-btn" class="btn-primary">Search</button>
+        <div class="search-bar">
+            <input type="text" placeholder="Search tracks or producers...">
+            <button class="btn">Search</button>
         </div>
 
-        <div class="user-panel" id="user-panel">
-            <button id="auth-trigger-btn" class="nav-btn">Sign In</button>
+        <div class="navigation-links">
+            <span>🎵 Discover Feed</span> | <span>📺 Subscribed Channels</span>
         </div>
-    </header>
 
-    <div class="main-layout">
-        <aside class="sidebar-navigation">
-            <nav class="nav-menu">
-                <a class="menu-item active" data-target="view-home">🎵 Discover Feed</a>
-                <a class="menu-item" data-target="view-subscriptions">📺 Subscribed Channels</a>
-            </nav>
-        </aside>
+        <h2>Discover Tracks</h2>
+        <div class="connection-status-message" id="status-node">Connecting to interface matrix...</div>
 
-        <main class="content-container">
-            
-            <div class="view-pane" id="view-home">
-                <h2 class="feed-title">Discover Tracks</h2>
-                <div id="tracks-container" class="grid-layout"></div>
+        <div class="video-container">
+            <div id="player"></div>
+        </div>
 
-                <div class="recommendations-wrapper hidden" id="recommendations-section">
-                    <h2 class="feed-title">Related Music Recommendations</h2>
-                    <div id="recommendations-container" class="grid-layout"></div>
-                </div>
-            </div>
+        <h2>Related Music Recommendations</h2>
+        <h2>Your Subscribed Channels</h2>
+        <h3>Producer Name</h3>
+        <p class="sub-text">Verified Artist Channel</p>
+        <button class="btn">Subscribe</button>
 
-            <div class="view-pane hidden" id="view-subscriptions">
-                <h2 class="feed-title">Your Subscribed Channels</h2>
-                <div id="subscriptions-grid" class="grid-layout"></div>
-            </div>
+        <h2>Recent Uploads</h2>
 
-            <div class="view-pane hidden" id="view-producer">
-                <div class="producer-header-card">
-                    <div class="producer-title-group">
-                        <h2 id="producer-page-name">Producer Name</h2>
-                        <p>Verified Artist Channel</p>
-                    </div>
-                    <button id="producer-subscribe-btn" class="btn-primary">Subscribe</button>
-                </div>
-                <h3 class="feed-title" style="font-size: 1.2rem; margin-bottom: 15px;">Recent Uploads</h3>
-                <div id="producer-tracks-container" class="grid-layout"></div>
-            </div>
-
-        </main>
-    </div>
-
-    <div class="modal-overlay hidden" id="auth-modal">
-        <div class="modal-box">
-            <div class="modal-header">
-                <h3 id="modal-headline">Sign In to Melodify</h3>
-                <button class="close-modal" id="close-modal-btn">×</button>
-            </div>
-            <form id="auth-form" class="modal-form">
-                <div class="input-group">
+        <div class="login-box">
+            <h3>Sign In to Melodify</h3>
+            <form id="auth-form">
+                <div class="form-group">
                     <label>Username</label>
-                    <input type="text" id="auth-username" required autocomplete="username">
+                    <input type="text" id="form-user" value="Melodify Owner">
                 </div>
-                <div class="input-group">
+                <div class="form-group">
                     <label>Password</label>
-                    <input type="password" id="auth-password" required autocomplete="current-password">
+                    <input type="password" id="form-pass" value="******">
                 </div>
-                <button type="submit" class="btn-primary" id="auth-submit-action" style="width: 100%; margin-top: 10px;">Continue</button>
+                <button type="submit" class="btn full-width">Continue</button>
             </form>
-            <div class="modal-footer">
-                <p id="auth-toggle-prompt">Don't have an account? <a href="#" id="auth-toggle-link">Register</a></p>
-            </div>
         </div>
     </div>
 
-    <footer class="persistent-player-dock hidden" id="player-dock">
-        <div class="dock-content">
-            <div class="active-track-info">
-                <img src="" alt="" id="dock-thumb" class="dock-track-img">
-                <div class="dock-meta">
-                    <div id="dock-title" class="dock-txt-title">Track Title</div>
-                    <div id="dock-producer" class="dock-txt-producer" title="View Channel">Producer</div>
-                </div>
-                <button id="dock-like-btn" class="dock-like-icon">♡</button>
-            </div>
-            <div class="playback-controls">
-                <button id="dock-loop-btn" class="control-secondary-btn" title="Toggle Loop Mode">🔁</button>
-                <button id="dock-play-btn" class="control-circle">▶</button>
-            </div>
-            <div class="volume-box">
-                <span class="vol-icon">🔊</span>
-                <input type="range" id="volume-slider" min="0" max="100" value="100">
-            </div>
-        </div>
-    </footer>
-
-    <script src="https://www.youtube.com/iframe_api"></script>
-    <script src="app.js"></script>
+    <script src="./app.js"></script>
 </body>
 </html>
