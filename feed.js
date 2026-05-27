@@ -17,7 +17,6 @@ const TrackSchema = new mongoose.Schema({
 });
 const Track = mongoose.model('Track', TrackSchema);
 
-// Change this name to target any creator you want to inject deep libraries for
 const CHANNELS_TO_FEED = ['CG5']; 
 
 async function executeDeepIngest() {
@@ -27,7 +26,6 @@ async function executeDeepIngest() {
     for (const artist of CHANNELS_TO_FEED) {
         console.log(`Executing hard brute-force scraping matrix for: ${artist}...`);
         
-        // This explicitly downloads multiple pages of search histories to bypass YouTube platform page walls
         const queries = [
             `"${artist}" songs`,
             `"${artist}" gaming animation music`,
@@ -43,7 +41,7 @@ async function executeDeepIngest() {
 
                 let addedCounter = 0;
                 for (const video of searchResults.videos) {
-                    if ((video.seconds || 0) < 45) continue; // Drop short clips
+                    if ((video.seconds || 0) < 45) continue;
 
                     const cleanTitle = video.title.replace(/[\(\[].*?[\)\]]/g, '').trim();
                     const isDriftPhonk = /drift|phonk|rave|lxst|dxrk/i.test(video.title);
