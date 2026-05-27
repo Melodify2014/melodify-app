@@ -21,7 +21,7 @@ const UserSchema = new mongoose.Schema({
     password: { type: String, required: true },
     likedTracks: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Track' }],
     watchHistory: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Track' }],
-    subscribedProducers: [{ type: String, trim: true }] // NEW: Stores channel names
+    subscribedProducers: [{ type: String, trim: true }]
 }, { timestamps: true });
 
 const TrackSchema = new mongoose.Schema({
@@ -149,7 +149,6 @@ app.post('/api/users/history', authenticateBearerToken, async (req, res) => {
     } catch (e) { return res.status(500).json({ message: 'History modification failed.' }); }
 });
 
-// NEW: Subscription Route
 app.post('/api/users/subscribe', authenticateBearerToken, async (req, res) => {
     try {
         const { producerName } = req.body;
@@ -164,7 +163,6 @@ app.post('/api/users/subscribe', authenticateBearerToken, async (req, res) => {
     } catch (e) { return res.status(500).json({ message: 'Subscription logging pipeline error.' }); }
 });
 
-// Track Routes
 app.get('/api/tracks', async (req, res) => {
     try {
         const queryToken = req.query.q;
@@ -176,13 +174,11 @@ app.get('/api/tracks', async (req, res) => {
     } catch (err) { return res.status(500).json({ message: 'Search query parsing error.' }); }
 });
 
-// NEW: Fetch all tracks by a specific Producer
 app.get('/api/tracks/producer/:name', async (req, res) => {
     try {
         const producerName = req.params.name;
         let producerTracks = await Track.find({ producer: producerName }).sort({ _id: -1 }).limit(40);
         
-        // If we don't have many tracks from them, trigger a background fetch to populate DB
         if (producerTracks.length < 5) {
             await sourceAndCacheMusic(`${producerName} channel`);
             producerTracks = await Track.find({ producer: producerName }).sort({ _id: -1 }).limit(40);
