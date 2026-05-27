@@ -38,11 +38,10 @@ const Track = mongoose.model('Track', TrackSchema);
 mongoose.connect(MONGO_URI)
     .then(async () => {
         console.log('Connected to MongoDB Successfully.');
-        if (process.env.RESET_DB === 'true' || process.env.RESET_DB === 'tzue') {
-            console.log('⚠️ RESET_DB flag detected. Clearing stale track cache...');
+        if (process.env.RESET_DB === 'true') {
             try {
                 await Track.deleteMany({});
-                console.log('✅ State track cache cleared successfully.');
+                console.log('Database flushed successfully.');
             } catch (err) { console.error('Database flushing error:', err); }
         }
     })
@@ -61,7 +60,7 @@ const authenticateBearerToken = async (req, res, next) => {
 
         const decoded = jwt.verify(token, JWT_SECRET);
         req.user = await User.findById(decoded.id).select('-password');
-        if (!req.user) return res.status(401).json({ message: 'Session session trace dropped.' });
+        if (!req.user) return res.status(401).json({ message: 'Session trace dropped.' });
         next();
     } catch (e) { return res.status(403).json({ message: 'Unauthorized session frame.' }); }
 };
@@ -70,10 +69,10 @@ const authenticateBearerToken = async (req, res, next) => {
 app.post('/api/auth/register', async (req, res) => {
     try {
         const { username, password } = req.body;
-        if (!username || !password || username.trim().length < 3) return res.status(400).json({ message: 'Invalid field entry requirements.' });
+        if (!username || !password || username.trim().length < 3) return res.status(400).json({ message: 'Invalid entry.' });
 
         const exists = await User.findOne({ username: username.toLowerCase() });
-        if (exists) return res.status(400).json({ message: 'Username has been taken.' });
+        if (exists) return res.status(400).json({ message: 'Username taken.' });
 
         const salt = await bcrypt.genSalt(10);
         const encryptedPassword = await bcrypt.hash(password, salt);
@@ -102,16 +101,27 @@ app.get('/api/tracks', async (req, res) => {
     try {
         const queryToken = req.query.q;
         if (queryToken && queryToken.trim().length > 0) {
-            const standardSearch = await ytSearch({ query: queryToken });
+            
+            // AUTOMATED AUDIO HARDENING INJECTOR: Eliminates non-music media noise
+            let strictMusicQuery = queryToken.toLowerCase();
+            const musicSafetyFilters = ['music', 'song', 'track', 'phonk', 'audio', 'remix', 'beat', 'synthwave'];
+            const hasMusicContext = musicSafetyFilters.some(keyword => strictMusicQuery.includes(keyword));
+            
+            if (!hasMusicContext) {
+                strictMusicQuery = `${queryToken} music audio`;
+            }
+
+            const standardSearch = await ytSearch({ query: strictMusicQuery });
             if (standardSearch && standardSearch.videos) {
-                const poolSlice = standardSearch.videos.slice(0, 24).filter(v => (v.seconds || 0) >= 10);
+                // Slice clean audio streams, eliminating hyper-short ads or massive movies
+                const poolSlice = standardSearch.videos.slice(0, 24).filter(v => (v.seconds || 0) >= 30 && (v.seconds || 0) <= 600);
                 if (poolSlice.length > 0) {
                     const bulkOperations = poolSlice.map(video => ({
                         updateOne: {
                             filter: { youtubeId: video.videoId },
                             update: {
-                                title: video.title.replace(/[\(\[].*?[\)\]]/g, '').trim(),
-                                producer: video.author.name || 'Unknown Producer',
+                                title: video.title.replace(/[\(\[]?(Official Video|Music Video|Lyrics|Videoclip|Official Audio)[\)\]]?/gi, '').trim(),
+                                producer: video.author.name ? video.author.name.replace(/VEVO$/i, '').trim() : 'Unknown Producer',
                                 thumbnail: getSecureThumbnail(video),
                                 youtubeId: video.videoId,
                                 duration: video.seconds || 0,
@@ -160,7 +170,7 @@ app.post('/api/users/history', authenticateBearerToken, async (req, res) => {
         if (req.user.watchHistory.length > 25) req.user.watchHistory.pop();
         await req.user.save();
         return res.status(200).json({ watchHistory: req.user.watchHistory });
-    } catch (e) { return res.status(500).json({ message: 'History index modification failed.' }); }
+    } catch (e) { return res.status(500).json({ message: 'History modification failed.' }); }
 });
 
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
