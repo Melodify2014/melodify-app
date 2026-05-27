@@ -9,14 +9,14 @@
 <body>
 
     <header class="app-header">
-        <div class="brand-section">
+        <div class="brand-section" id="brand-home-btn">
             <span class="logo-icon">⚡</span>
             <h1 class="app-title">Melodify</h1>
         </div>
         
         <div class="search-wrapper">
             <input type="text" id="search-input" placeholder="Search tracks or producers...">
-            <button id="search-btn">Search</button>
+            <button id="search-btn" class="btn-primary">Search</button>
         </div>
 
         <div class="user-panel" id="user-panel">
@@ -27,17 +27,41 @@
     <div class="main-layout">
         <aside class="sidebar-navigation">
             <nav class="nav-menu">
-                <a href="#" class="menu-item active" data-target="home">🎵 Discover Feed</a>
-                <a href="#" class="menu-item" data-target="favorites">❤️ Liked Core</a>
-                <a href="#" class="menu-item" data-target="history">🕒 History Log</a>
-            </nav>
+                <a class="menu-item active" data-target="view-home">🎵 Discover Feed</a>
+                <a class="menu-item" data-target="view-subscriptions">📺 Subscribed Channels</a>
+                </nav>
         </aside>
 
         <main class="content-container">
-            <div class="view-pane dynamic-active" id="view-home">
+            
+            <div class="view-pane" id="view-home">
                 <h2 class="feed-title">Discover Tracks</h2>
                 <div id="tracks-container" class="grid-layout"></div>
+
+                <div class="recommendations-wrapper hidden" id="recommendations-section">
+                    <h2 class="feed-title">Related Music Recommendations</h2>
+                    <div id="recommendations-container" class="grid-layout"></div>
+                </div>
             </div>
+
+            <div class="view-pane hidden" id="view-subscriptions">
+                <h2 class="feed-title">Your Subscribed Channels</h2>
+                <div id="subscriptions-grid" class="grid-layout">
+                    </div>
+            </div>
+
+            <div class="view-pane hidden" id="view-producer">
+                <div class="producer-header-card">
+                    <div class="producer-title-group">
+                        <h2 id="producer-page-name">Producer Name</h2>
+                        <p>Verified Artist Channel</p>
+                    </div>
+                    <button id="producer-subscribe-btn" class="btn-primary">Subscribe</button>
+                </div>
+                <h3 class="feed-title" style="font-size: 1.2rem; margin-bottom: 15px;">Recent Uploads</h3>
+                <div id="producer-tracks-container" class="grid-layout"></div>
+            </div>
+
         </main>
     </div>
 
@@ -56,7 +80,7 @@
                     <label>Password</label>
                     <input type="password" id="auth-password" required autocomplete="current-password">
                 </div>
-                <button type="submit" class="auth-submit-btn" id="auth-submit-action">Continue</button>
+                <button type="submit" class="btn-primary" id="auth-submit-action" style="width: 100%; margin-top: 10px;">Continue</button>
             </form>
             <div class="modal-footer">
                 <p id="auth-toggle-prompt">Don't have an account? <a href="#" id="auth-toggle-link">Register</a></p>
@@ -70,7 +94,7 @@
                 <img src="" alt="" id="dock-thumb" class="dock-track-img">
                 <div class="dock-meta">
                     <div id="dock-title" class="dock-txt-title">Track Title</div>
-                    <div id="dock-producer" class="dock-txt-producer">Producer</div>
+                    <div id="dock-producer" class="dock-txt-producer" title="View Channel">Producer</div>
                 </div>
                 <button id="dock-like-btn" class="dock-like-icon">♡</button>
             </div>
