@@ -50,7 +50,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function executeCatalogSynchronization(queryParameters = '') {
         try {
-            tracksContainer.innerHTML = '<div class="loading-state">Syncing track arrays...</div>';
+            tracksContainer.innerHTML = '<div class="loading-state">Syncing audio streams...</div>';
             const response = await fetch(`${API_URL}/api/tracks${queryParameters}`);
             localCacheTracks = await response.json();
             renderTrackGrid(localCacheTracks);
@@ -62,7 +62,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function renderTrackGrid(tracksList) {
         tracksContainer.innerHTML = '';
         if (!tracksList || tracksList.length === 0) {
-            tracksContainer.innerHTML = '<div class="empty-state">No matching sounds detected.</div>';
+            tracksContainer.innerHTML = '<div class="empty-state">No matching music tracks found.</div>';
             return;
         }
 
@@ -164,6 +164,7 @@ document.addEventListener('DOMContentLoaded', () => {
     dockLoopBtn.addEventListener('click', () => {
         isLoopActive = !isLoopActive;
         dockLoopBtn.style.color = isLoopActive ? '#1db954' : '#ffffff';
+        dockLoopBtn.style.textShadow = isLoopActive ? '0 0 8px #1db954' : 'none';
     });
 
     dockPlayBtn.addEventListener('click', () => {
@@ -245,7 +246,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 await verifyUserSession();
                 closeModal();
                 authForm.reset();
-            } else { alert(data.message || "Auth error."); }
+            } else { alert(data.message || "Authorization error."); }
         } catch (err) { alert("Authorization network timeout."); }
     });
 
