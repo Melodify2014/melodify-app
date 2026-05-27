@@ -7,7 +7,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentViewedProducer = null;
     let isLoopActive = false; 
 
-    // Caches
+    // Data Caches
     let localCacheTracks = [];
     let recommendedCacheTracks = [];
     let producerCacheTracks = [];
@@ -15,7 +15,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let sessionUserToken = localStorage.getItem('melodify_jwt');
     let authenticatedUserData = null;
 
-    // View Routing Elements
+    // SPA View Registration
     const views = {
         'view-home': document.getElementById('view-home'),
         'view-subscriptions': document.getElementById('view-subscriptions'),
@@ -23,7 +23,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     const menuItems = document.querySelectorAll('.menu-item');
 
-    // UI Hooks
+    // DOM Elements Hook
     const tracksContainer = document.getElementById('tracks-container');
     const recommendationsSection = document.getElementById('recommendations-section');
     const recommendationsContainer = document.getElementById('recommendations-container');
@@ -37,7 +37,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const userPanel = document.getElementById('user-panel');
     const authModal = document.getElementById('auth-modal');
     
-    // Playback Hooks
+    // Media Playback Hooks
     const playerDock = document.getElementById('player-dock');
     const dockThumb = document.getElementById('dock-thumb');
     const dockTitle = document.getElementById('dock-title');
@@ -46,7 +46,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const dockLoopBtn = document.getElementById('dock-loop-btn');
     const dockLikeBtn = document.getElementById('dock-like-btn');
 
-    // Mount Invisible Stream Engine
+    // Mount Invisible Stream Container
     const hiddenPlayerDiv = document.createElement('div');
     hiddenPlayerDiv.id = 'melodify-hidden-hardware-engine';
     hiddenPlayerDiv.style.display = 'none';
@@ -57,7 +57,11 @@ document.addEventListener('DOMContentLoaded', () => {
             height: '0', width: '0', playerVars: { 'playsinline': 1, 'controls': 0, 'disablekb': 1 },
             events: {
                 'onStateChange': (e) => {
-                    if (e.data === YT.PlayerState.ENDED && isLoopActive) { ytPlayerInstance.seekTo(0); ytPlayerInstance.playVideo(); return; }
+                    if (e.data === YT.PlayerState.ENDED && isLoopActive) { 
+                        ytPlayerInstance.seekTo(0); 
+                        ytPlayerInstance.playVideo(); 
+                        return; 
+                    }
                     document.querySelectorAll('.play-overlay-btn').forEach(b => {
                         b.textContent = (activeTrackContext && b.getAttribute('data-id') === activeTrackContext._id && e.data === YT.PlayerState.PLAYING) ? '⏸' : '▶';
                     });
@@ -67,7 +71,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     };
 
-    // --- SPA VIEW ROUTING LOGIC ---
+    // --- APPLICATION CORE ROUTING ---
     function switchView(targetViewId) {
         Object.keys(views).forEach(key => {
             if (views[key]) views[key].classList.add('hidden');
@@ -92,7 +96,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const homeBrandBtn = document.getElementById('brand-home-btn');
     if (homeBrandBtn) homeBrandBtn.addEventListener('click', () => switchView('view-home'));
 
-    // --- PRODUCER PAGE LOGIC ---
+    // --- PRODUCER ARCHITECTURE ---
     async function loadProducerProfile(producerName) {
         currentViewedProducer = producerName;
         if (producerPageName) producerPageName.textContent = producerName;
@@ -109,7 +113,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // --- SUBSCRIPTION LOGIC ---
+    // --- SUBSCRIPTION HANDLING MANAGEMENT ---
     async function toggleSubscribeAction() {
         if (!sessionUserToken) return openModal();
         if (!currentViewedProducer) return;
@@ -125,16 +129,19 @@ document.addEventListener('DOMContentLoaded', () => {
                 authenticatedUserData.subscribedProducers = data.subscribedProducers;
                 updateSubscribeButtonUI();
             }
-        } catch (e) { console.error("Subscription fault.", e); }
+        } catch (e) { console.error("Subscription communication error.", e); }
     }
 
+    // FIXED: Safe verification layers added to handle missing or unpopulated profiles
     function updateSubscribeButtonUI() {
         if (!producerSubscribeBtn) return;
-        if (!authenticatedUserData || !currentViewedProducer) {
+        
+        if (!authenticatedUserData || !authenticatedUserData.subscribedProducers || !currentViewedProducer) {
             producerSubscribeBtn.textContent = 'Subscribe';
             producerSubscribeBtn.classList.remove('is-subscribed');
             return;
         }
+        
         const isSubbed = authenticatedUserData.subscribedProducers.includes(currentViewedProducer);
         producerSubscribeBtn.textContent = isSubbed ? 'Subscribed ✓' : 'Subscribe';
         if (isSubbed) producerSubscribeBtn.classList.add('is-subscribed');
@@ -143,6 +150,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (producerSubscribeBtn) producerSubscribeBtn.addEventListener('click', toggleSubscribeAction);
 
+    // FIXED: Prevent unhandled exceptions on unauthenticated/empty target grids
     function renderSubscriptionsView() {
         if (!subscriptionsGrid) return;
         if (!authenticatedUserData || !authenticatedUserData.subscribedProducers || authenticatedUserData.subscribedProducers.length === 0) {
@@ -151,7 +159,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         subscriptionsGrid.innerHTML = '';
-        authenticatedUserData.subscribedProducers.forEach(name => {
+        (authenticatedUserData.subscribedProducers || []).forEach(name => {
             const initial = name.charAt(0).toUpperCase();
             const cardHTML = `
                 <div class="subscription-card" data-name="${name.replace(/"/g, '&quot;')}">
@@ -167,7 +175,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // --- CORE DATA FETCHING & RENDERING ---
+    // --- DATA CAPTURE AND RENDERING ---
     async function executeCatalogSynchronization(queryParameters = '') {
         try {
             if (tracksContainer) tracksContainer.innerHTML = '<div class="loading-state">Syncing audio streams...</div>';
@@ -194,15 +202,19 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // FIXED: Safely verify like array status using optional chaining to shield visitor states
     function renderTrackGrid(tracksList, containerTarget, contextFlag) {
         if (!containerTarget) return;
         containerTarget.innerHTML = '';
-        if (!tracksList || tracksList.length === 0) { containerTarget.innerHTML = '<div class="empty-state">No tracks found.</div>'; return; }
+        if (!tracksList || tracksList.length === 0) { 
+            containerTarget.innerHTML = '<div class="empty-state">No tracks found.</div>'; 
+            return; 
+        }
 
         tracksList.forEach(track => {
             const titleParsed = (track.title || 'Untitled').replace(/"/g, '&quot;');
             const producerParsed = (track.producer || 'Unknown').replace(/"/g, '&quot;');
-            const isLiked = authenticatedUserData && authenticatedUserData.likedTracks.includes(track._id);
+            const isLiked = !!(authenticatedUserData?.likedTracks?.includes(track._id));
             const videoId = track.youtubeId || '';
 
             const card = `
@@ -237,7 +249,10 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         containerTarget.querySelectorAll('.card-like-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => { e.stopPropagation(); toggleTrackLikeStatus(btn.getAttribute('data-id')); });
+            btn.addEventListener('click', (e) => { 
+                e.stopPropagation(); 
+                toggleTrackLikeStatus(btn.getAttribute('data-id')); 
+            });
         });
 
         containerTarget.querySelectorAll('.track-producer').forEach(el => {
@@ -274,11 +289,20 @@ document.addEventListener('DOMContentLoaded', () => {
         updateLikeDockIcon();
         ytPlayerInstance.loadVideoById(track.youtubeId);
         
-        if (sessionUserToken) fetch(`${API_URL}/api/users/history`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${sessionUserToken}` }, body: JSON.stringify({ trackId: track._id }) });
+        if (sessionUserToken) {
+            fetch(`${API_URL}/api/users/history`, { 
+                method: 'POST', 
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${sessionUserToken}` }, 
+                body: JSON.stringify({ trackId: track._id }) 
+            });
+        }
     }
 
     if (dockLoopBtn) {
-        dockLoopBtn.addEventListener('click', () => { isLoopActive = !isLoopActive; dockLoopBtn.style.color = isLoopActive ? '#1db954' : '#ffffff'; });
+        dockLoopBtn.addEventListener('click', () => { 
+            isLoopActive = !isLoopActive; 
+            dockLoopBtn.style.color = isLoopActive ? '#1db954' : '#ffffff'; 
+        });
     }
     if (dockPlayBtn) {
         dockPlayBtn.addEventListener('click', () => {
@@ -293,7 +317,7 @@ document.addEventListener('DOMContentLoaded', () => {
         volSlider.addEventListener('input', (e) => ytPlayerInstance && ytPlayerInstance.setVolume(e.target.value));
     }
 
-    // --- IDENTITY / AUTH ---
+    // --- IDENTITY / AUTH SESSION CONTROLS ---
     async function verifyUserSession() {
         if (!sessionUserToken) {
             setupAuthTriggerListener();
@@ -386,7 +410,11 @@ document.addEventListener('DOMContentLoaded', () => {
     async function toggleTrackLikeStatus(trackId) {
         if (!sessionUserToken) return openModal();
         try {
-            const res = await fetch(`${API_URL}/api/users/like`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${sessionUserToken}` }, body: JSON.stringify({ trackId }) });
+            const res = await fetch(`${API_URL}/api/users/like`, { 
+                method: 'POST', 
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${sessionUserToken}` }, 
+                body: JSON.stringify({ trackId }) 
+            });
             if (res.ok) {
                 authenticatedUserData.likedTracks = (await res.json()).likedTracks;
                 if(!views['view-home'].classList.contains('hidden')) renderTrackGrid(localCacheTracks, tracksContainer, 'home');
@@ -398,7 +426,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function updateLikeDockIcon() {
         if (!activeTrackContext || !dockLikeBtn) return;
-        const isLiked = authenticatedUserData && authenticatedUserData.likedTracks.includes(activeTrackContext._id);
+        const isLiked = !!(authenticatedUserData?.likedTracks?.includes(activeTrackContext._id));
         dockLikeBtn.textContent = isLiked ? '❤️' : '♡'; 
         dockLikeBtn.style.color = isLiked ? '#1db954' : '#fff';
     }
