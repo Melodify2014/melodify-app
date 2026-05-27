@@ -1,11 +1,10 @@
 document.addEventListener('DOMContentLoaded', () => {
     const API_URL = window.location.origin;
-    
     let ytPlayerInstance = null;
-    let currentAuthMode = 'login'; 
+    let currentAuthMode = 'login';
     let activeTrackContext = null;
     let currentViewedProducer = null;
-    let isLoopActive = false; 
+    let isLoopActive = false;
 
     // Data Caches
     let localCacheTracks = [];
@@ -31,7 +30,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const producerTracksContainer = document.getElementById('producer-tracks-container');
     const producerPageName = document.getElementById('producer-page-name');
     const producerSubscribeBtn = document.getElementById('producer-subscribe-btn');
-    
     const searchInput = document.getElementById('search-input');
     const searchBtn = document.getElementById('search-btn');
     const userPanel = document.getElementById('user-panel');
@@ -54,13 +52,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
     window.onYouTubeIframeAPIReady = () => {
         ytPlayerInstance = new YT.Player('melodify-hidden-hardware-engine', {
-            height: '0', width: '0', playerVars: { 'playsinline': 1, 'controls': 0, 'disablekb': 1 },
+            height: '0', 
+            width: '0', 
+            playerVars: { 'playsinline': 1, 'controls': 0, 'disablekb': 1 },
             events: {
                 'onStateChange': (e) => {
-                    if (e.data === YT.PlayerState.ENDED && isLoopActive) { 
-                        ytPlayerInstance.seekTo(0); 
-                        ytPlayerInstance.playVideo(); 
-                        return; 
+                    if (e.data === YT.PlayerState.ENDED && isLoopActive) {
+                        ytPlayerInstance.seekTo(0);
+                        ytPlayerInstance.playVideo();
+                        return;
                     }
                     document.querySelectorAll('.play-overlay-btn').forEach(b => {
                         b.textContent = (activeTrackContext && b.getAttribute('data-id') === activeTrackContext._id && e.data === YT.PlayerState.PLAYING) ? '⏸' : '▶';
@@ -77,7 +77,6 @@ document.addEventListener('DOMContentLoaded', () => {
             if (views[key]) views[key].classList.add('hidden');
         });
         if (views[targetViewId]) views[targetViewId].classList.remove('hidden');
-        
         menuItems.forEach(item => {
             item.classList.remove('active');
             if(item.getAttribute('data-target') === targetViewId) item.classList.add('active');
@@ -129,19 +128,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 authenticatedUserData.subscribedProducers = data.subscribedProducers;
                 updateSubscribeButtonUI();
             }
-        } catch (e) { console.error("Subscription communication error.", e); }
+        } catch (e) { 
+            console.error("Subscription communication error.", e); 
+        }
     }
 
-    // FIXED: Safe verification layers added to handle missing or unpopulated profiles
     function updateSubscribeButtonUI() {
         if (!producerSubscribeBtn) return;
-        
         if (!authenticatedUserData || !authenticatedUserData.subscribedProducers || !currentViewedProducer) {
             producerSubscribeBtn.textContent = 'Subscribe';
             producerSubscribeBtn.classList.remove('is-subscribed');
             return;
         }
-        
         const isSubbed = authenticatedUserData.subscribedProducers.includes(currentViewedProducer);
         producerSubscribeBtn.textContent = isSubbed ? 'Subscribed ✓' : 'Subscribe';
         if (isSubbed) producerSubscribeBtn.classList.add('is-subscribed');
@@ -150,7 +148,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (producerSubscribeBtn) producerSubscribeBtn.addEventListener('click', toggleSubscribeAction);
 
-    // FIXED: Prevent unhandled exceptions on unauthenticated/empty target grids
     function renderSubscriptionsView() {
         if (!subscriptionsGrid) return;
         if (!authenticatedUserData || !authenticatedUserData.subscribedProducers || authenticatedUserData.subscribedProducers.length === 0) {
@@ -179,41 +176,38 @@ document.addEventListener('DOMContentLoaded', () => {
     async function executeCatalogSynchronization(queryParameters = '') {
         try {
             if (tracksContainer) tracksContainer.innerHTML = '<div class="loading-state">Syncing audio streams...</div>';
-            
             const response = await fetch(`${API_URL}/api/tracks${queryParameters}`);
             localCacheTracks = await response.json();
             renderTrackGrid(localCacheTracks, tracksContainer, 'home');
 
             const recResponse = await fetch(`${API_URL}/api/recommendations${queryParameters}`);
             recommendedCacheTracks = await recResponse.json();
-            
             if (recommendationsSection) {
                 if (recommendedCacheTracks.length > 0) {
                     recommendationsSection.classList.remove('hidden');
                     renderTrackGrid(recommendedCacheTracks, recommendationsContainer, 'recommendation');
-                } else { 
-                    recommendationsSection.classList.add('hidden'); 
+                } else {
+                    recommendationsSection.classList.add('hidden');
                 }
             }
-            
             switchView('view-home');
-        } catch (err) { 
-            if (tracksContainer) tracksContainer.innerHTML = '<div class="error-state">Interface connection sequence dropped.</div>'; 
+        } catch (err) {
+            if (tracksContainer) tracksContainer.innerHTML = '<div class="error-state">Interface connection sequence dropped.</div>';
         }
     }
 
-    // FIXED: Safely verify like array status using optional chaining to shield visitor states
     function renderTrackGrid(tracksList, containerTarget, contextFlag) {
         if (!containerTarget) return;
         containerTarget.innerHTML = '';
-        if (!tracksList || tracksList.length === 0) { 
-            containerTarget.innerHTML = '<div class="empty-state">No tracks found.</div>'; 
-            return; 
+        if (!tracksList || tracksList.length === 0) {
+            containerTarget.innerHTML = '<div class="empty-state">No tracks found.</div>';
+            return;
         }
 
         tracksList.forEach(track => {
             const titleParsed = (track.title || 'Untitled').replace(/"/g, '&quot;');
             const producerParsed = (track.producer || 'Unknown').replace(/"/g, '&quot;');
+            
             const isLiked = !!(authenticatedUserData?.likedTracks?.includes(track._id));
             const videoId = track.youtubeId || '';
 
@@ -249,9 +243,9 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         containerTarget.querySelectorAll('.card-like-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => { 
-                e.stopPropagation(); 
-                toggleTrackLikeStatus(btn.getAttribute('data-id')); 
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                toggleTrackLikeStatus(btn.getAttribute('data-id'));
             });
         });
 
@@ -288,20 +282,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
         updateLikeDockIcon();
         ytPlayerInstance.loadVideoById(track.youtubeId);
-        
         if (sessionUserToken) {
-            fetch(`${API_URL}/api/users/history`, { 
-                method: 'POST', 
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${sessionUserToken}` }, 
-                body: JSON.stringify({ trackId: track._id }) 
+            fetch(`${API_URL}/api/users/history`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${sessionUserToken}` },
+                body: JSON.stringify({ trackId: track._id })
             });
         }
     }
 
     if (dockLoopBtn) {
-        dockLoopBtn.addEventListener('click', () => { 
-            isLoopActive = !isLoopActive; 
-            dockLoopBtn.style.color = isLoopActive ? '#1db954' : '#ffffff'; 
+        dockLoopBtn.addEventListener('click', () => {
+            isLoopActive = !isLoopActive;
+            dockLoopBtn.style.color = isLoopActive ? '#1db954' : '#ffffff';
         });
     }
     if (dockPlayBtn) {
@@ -311,7 +304,6 @@ document.addEventListener('DOMContentLoaded', () => {
             else ytPlayerInstance.playVideo();
         });
     }
-    
     const volSlider = document.getElementById('volume-slider');
     if (volSlider) {
         volSlider.addEventListener('input', (e) => ytPlayerInstance && ytPlayerInstance.setVolume(e.target.value));
@@ -325,31 +317,29 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         try {
             const res = await fetch(`${API_URL}/api/auth/me`, { headers: { 'Authorization': `Bearer ${sessionUserToken}` } });
-            if (res.ok) { 
-                authenticatedUserData = await res.json(); 
-                renderUserAccountInterface(); 
+            if (res.ok) {
+                authenticatedUserData = await res.json();
+                renderUserAccountInterface();
             } else {
                 clearSessionData();
             }
-        } catch (e) { 
-            clearSessionData(); 
+        } catch (e) {
+            clearSessionData();
         }
     }
 
     function renderUserAccountInterface() {
         if (!userPanel) return;
         userPanel.innerHTML = `<div class="profile-badge"><span class="username-txt">👤 ${authenticatedUserData.username}</span><button id="logout-btn" class="logout-btn">Exit</button></div>`;
-        
         const logoutBtn = document.getElementById('logout-btn');
         if (logoutBtn) logoutBtn.addEventListener('click', clearSessionData);
-        
         if(views['view-home'] && !views['view-home'].classList.contains('hidden')) executeCatalogSynchronization();
         if(views['view-producer'] && !views['view-producer'].classList.contains('hidden')) loadProducerProfile(currentViewedProducer);
     }
 
     function clearSessionData() {
         localStorage.removeItem('melodify_jwt');
-        sessionUserToken = null; 
+        sessionUserToken = null;
         authenticatedUserData = null;
         if (userPanel) userPanel.innerHTML = `<button id="auth-trigger-btn" class="nav-btn">Sign In</button>`;
         setupAuthTriggerListener();
@@ -363,7 +353,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     const openModal = () => { if (authModal) authModal.classList.remove('hidden'); };
-    
     const closeModalBtn = document.getElementById('close-modal-btn');
     if (closeModalBtn) closeModalBtn.addEventListener('click', () => { if (authModal) authModal.classList.add('hidden'); });
 
@@ -384,25 +373,25 @@ document.addEventListener('DOMContentLoaded', () => {
             e.preventDefault();
             const endpoint = currentAuthMode === 'login' ? '/api/auth/login' : '/api/auth/register';
             try {
-                const res = await fetch(`${API_URL}${endpoint}`, { 
-                    method: 'POST', 
-                    headers: { 'Content-Type': 'application/json' }, 
-                    body: JSON.stringify({ 
-                        username: document.getElementById('auth-username').value, 
-                        password: document.getElementById('auth-password').value 
-                    }) 
+                const res = await fetch(`${API_URL}${endpoint}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        username: document.getElementById('auth-username').value,
+                        password: document.getElementById('auth-password').value
+                    })
                 });
                 const data = await res.json();
-                if (res.ok) { 
-                    localStorage.setItem('melodify_jwt', data.token); 
-                    sessionUserToken = data.token; 
-                    await verifyUserSession(); 
-                    if (authModal) authModal.classList.add('hidden'); 
+                if (res.ok) {
+                    localStorage.setItem('melodify_jwt', data.token);
+                    sessionUserToken = data.token;
+                    await verifyUserSession();
+                    if (authModal) authModal.classList.add('hidden');
                 } else {
                     alert(data.message || "Authorization error.");
                 }
-            } catch (err) { 
-                alert("Authorization network timeout."); 
+            } catch (err) {
+                alert("Authorization network timeout.");
             }
         });
     }
@@ -410,10 +399,10 @@ document.addEventListener('DOMContentLoaded', () => {
     async function toggleTrackLikeStatus(trackId) {
         if (!sessionUserToken) return openModal();
         try {
-            const res = await fetch(`${API_URL}/api/users/like`, { 
-                method: 'POST', 
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${sessionUserToken}` }, 
-                body: JSON.stringify({ trackId }) 
+            const res = await fetch(`${API_URL}/api/users/like`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${sessionUserToken}` },
+                body: JSON.stringify({ trackId })
             });
             if (res.ok) {
                 authenticatedUserData.likedTracks = (await res.json()).likedTracks;
@@ -421,13 +410,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 if(!views['view-producer'].classList.contains('hidden')) renderTrackGrid(producerCacheTracks, producerTracksContainer, 'producer');
                 updateLikeDockIcon();
             }
-        } catch (e) { console.error(e); }
+        } catch (e) { 
+            console.error(e); 
+        }
     }
 
     function updateLikeDockIcon() {
         if (!activeTrackContext || !dockLikeBtn) return;
         const isLiked = !!(authenticatedUserData?.likedTracks?.includes(activeTrackContext._id));
-        dockLikeBtn.textContent = isLiked ? '❤️' : '♡'; 
+        dockLikeBtn.textContent = isLiked ? '❤️' : '♡';
         dockLikeBtn.style.color = isLiked ? '#1db954' : '#fff';
     }
     if (dockLikeBtn) dockLikeBtn.addEventListener('click', () => { if (activeTrackContext) toggleTrackLikeStatus(activeTrackContext._id); });
