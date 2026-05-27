@@ -7,30 +7,32 @@ firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
 let player;
 let isPlayerReady = false;
 
+// Triggered automatically when the script loads from YouTube's servers
 function onYouTubeIframeAPIReady() {
     player = new YT.Player('player', {
         height: '1',
         width: '1',
-        videoId: 'dQw4w9WgXcQ', // Initial default stream track hook
+        videoId: 'Hff7UzF4_lM', // Default startup track: METAMORPHOSIS
         playerVars: {
             'playsinline': 1,
             'enablejsapi': 1,
-            'origin': window.location.origin,
+            'origin': window.location.origin, // Crucial handshake fix
             'controls': 0,
             'disablekb': 1
         },
         events: {
-            'onReady': () => {
-                isPlayerReady = true;
-                console.log("Audio pipeline initialized securely.");
-                document.getElementById('player-title').innerText = "FLY (Audio Feed)";
-                document.getElementById('player-artist').innerText = "CG5";
-            },
+            'onReady': onPlayerReady,
             'onStateChange': onPlayerStateChange
         }
     });
 }
 
+function onPlayerReady(event) {
+    isPlayerReady = true;
+    console.log("Audio pipeline initialized securely.");
+}
+
+// Controls the turning animation on your spinning music icon
 function onPlayerStateChange(event) {
     const disk = document.getElementById('disk-element');
     if (event.data === YT.PlayerState.PLAYING) {
@@ -40,7 +42,7 @@ function onPlayerStateChange(event) {
     }
 }
 
-// Attach UI Event controllers
+// Wire up your buttons and setup initial catalog items
 document.addEventListener('DOMContentLoaded', () => {
     const playBtn = document.getElementById('play-btn');
     const pauseBtn = document.getElementById('pause-btn');
@@ -57,10 +59,10 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Load available songs from stream registry routes
     fetchTracks();
 });
 
+// Grab your server music array
 async function fetchTracks() {
     const container = document.getElementById('catalog-view');
     try {
@@ -73,9 +75,15 @@ async function fetchTracks() {
                 const item = document.createElement('div');
                 item.className = 'track-item';
                 item.innerHTML = `<strong>${track.title}</strong> — ${track.producer}`;
+                
+                // Track selector interaction click handler
                 item.addEventListener('click', () => {
                     if (isPlayerReady && player) {
-                        player.loadVideoById(track.youtubeId);
+                        // Crucial Fix: Uses cueVideoById to load the video string safely without CORS issues
+                        player.cueVideoById(track.youtubeId);
+                        player.playVideo();
+                        
+                        // Update UI labels dynamically
                         document.getElementById('player-title').innerText = track.title;
                         document.getElementById('player-artist').innerText = track.producer;
                     }
@@ -84,6 +92,6 @@ async function fetchTracks() {
             });
         }
     } catch (err) {
-        if (container) container.innerHTML = '<p class="gray-text">Failed to fetch dynamic tracks items.</p>';
+        console.error("Catalog track loading issue:", err.message);
     }
 }
