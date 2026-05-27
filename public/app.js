@@ -61,7 +61,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     document.querySelectorAll('.play-overlay-btn').forEach(b => {
                         b.textContent = (activeTrackContext && b.getAttribute('data-id') === activeTrackContext._id && e.data === YT.PlayerState.PLAYING) ? '⏸' : '▶';
                     });
-                    dockPlayBtn.textContent = e.data === YT.PlayerState.PLAYING ? '⏸' : '▶';
+                    if (dockPlayBtn) dockPlayBtn.textContent = e.data === YT.PlayerState.PLAYING ? '⏸' : '▶';
                 }
             }
         });
@@ -69,8 +69,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- SPA VIEW ROUTING LOGIC ---
     function switchView(targetViewId) {
-        Object.values(views).forEach(pane => pane.classList.add('hidden'));
-        views[targetViewId].classList.remove('hidden');
+        Object.keys(views).forEach(key => {
+            if (views[key]) views[key].classList.add('hidden');
+        });
+        if (views[targetViewId]) views[targetViewId].classList.remove('hidden');
         
         menuItems.forEach(item => {
             item.classList.remove('active');
@@ -87,22 +89,23 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    document.getElementById('brand-home-btn').addEventListener('click', () => switchView('view-home'));
+    const homeBrandBtn = document.getElementById('brand-home-btn');
+    if (homeBrandBtn) homeBrandBtn.addEventListener('click', () => switchView('view-home'));
 
     // --- PRODUCER PAGE LOGIC ---
     async function loadProducerProfile(producerName) {
         currentViewedProducer = producerName;
-        producerPageName.textContent = producerName;
+        if (producerPageName) producerPageName.textContent = producerName;
         switchView('view-producer');
         updateSubscribeButtonUI();
 
-        producerTracksContainer.innerHTML = '<div class="loading-state">Loading artist catalog...</div>';
+        if (producerTracksContainer) producerTracksContainer.innerHTML = '<div class="loading-state">Loading artist catalog...</div>';
         try {
             const res = await fetch(`${API_URL}/api/tracks/producer/${encodeURIComponent(producerName)}`);
             producerCacheTracks = await res.json();
             renderTrackGrid(producerCacheTracks, producerTracksContainer, 'producer');
         } catch (err) {
-            producerTracksContainer.innerHTML = '<div class="error-state">Failed to load channel data.</div>';
+            if (producerTracksContainer) producerTracksContainer.innerHTML = '<div class="error-state">Failed to load channel data.</div>';
         }
     }
 
@@ -126,6 +129,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function updateSubscribeButtonUI() {
+        if (!producerSubscribeBtn) return;
         if (!authenticatedUserData || !currentViewedProducer) {
             producerSubscribeBtn.textContent = 'Subscribe';
             producerSubscribeBtn.classList.remove('is-subscribed');
@@ -137,9 +141,10 @@ document.addEventListener('DOMContentLoaded', () => {
         else producerSubscribeBtn.classList.remove('is-subscribed');
     }
 
-    producerSubscribeBtn.addEventListener('click', toggleSubscribeAction);
+    if (producerSubscribeBtn) producerSubscribeBtn.addEventListener('click', toggleSubscribeAction);
 
     function renderSubscriptionsView() {
+        if (!subscriptionsGrid) return;
         if (!authenticatedUserData || !authenticatedUserData.subscribedProducers || authenticatedUserData.subscribedProducers.length === 0) {
             subscriptionsGrid.innerHTML = '<div class="empty-state">You are not subscribed to any channels yet.</div>';
             return;
@@ -165,7 +170,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- CORE DATA FETCHING & RENDERING ---
     async function executeCatalogSynchronization(queryParameters = '') {
         try {
-            tracksContainer.innerHTML = '<div class="loading-state">Syncing audio streams...</div>';
+            if (tracksContainer) tracksContainer.innerHTML = '<div class="loading-state">Syncing audio streams...</div>';
             
             const response = await fetch(`${API_URL}/api/tracks${queryParameters}`);
             localCacheTracks = await response.json();
@@ -174,16 +179,23 @@ document.addEventListener('DOMContentLoaded', () => {
             const recResponse = await fetch(`${API_URL}/api/recommendations${queryParameters}`);
             recommendedCacheTracks = await recResponse.json();
             
-            if (recommendedCacheTracks.length > 0) {
-                recommendationsSection.classList.remove('hidden');
-                renderTrackGrid(recommendedCacheTracks, recommendationsContainer, 'recommendation');
-            } else { recommendationsSection.classList.add('hidden'); }
+            if (recommendationsSection) {
+                if (recommendedCacheTracks.length > 0) {
+                    recommendationsSection.classList.remove('hidden');
+                    renderTrackGrid(recommendedCacheTracks, recommendationsContainer, 'recommendation');
+                } else { 
+                    recommendationsSection.classList.add('hidden'); 
+                }
+            }
             
             switchView('view-home');
-        } catch (err) { tracksContainer.innerHTML = '<div class="error-state">Interface connection sequence dropped.</div>'; }
+        } catch (err) { 
+            if (tracksContainer) tracksContainer.innerHTML = '<div class="error-state">Interface connection sequence dropped.</div>'; 
+        }
     }
 
     function renderTrackGrid(tracksList, containerTarget, contextFlag) {
+        if (!containerTarget) return;
         containerTarget.innerHTML = '';
         if (!tracksList || tracksList.length === 0) { containerTarget.innerHTML = '<div class="empty-state">No tracks found.</div>'; return; }
 
@@ -228,7 +240,6 @@ document.addEventListener('DOMContentLoaded', () => {
             btn.addEventListener('click', (e) => { e.stopPropagation(); toggleTrackLikeStatus(btn.getAttribute('data-id')); });
         });
 
-        // Event Delegation for clicking a producer's name
         containerTarget.querySelectorAll('.track-producer').forEach(el => {
             el.addEventListener('click', (e) => {
                 e.stopPropagation();
@@ -237,14 +248,15 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Dock Producer Click
-    dockProducer.addEventListener('click', () => {
-        if(activeTrackContext && activeTrackContext.producer) loadProducerProfile(activeTrackContext.producer);
-    });
+    if (dockProducer) {
+        dockProducer.addEventListener('click', () => {
+            if(activeTrackContext && activeTrackContext.producer) loadProducerProfile(activeTrackContext.producer);
+        });
+    }
 
     function toggleMediaStream(track) {
         if (!ytPlayerInstance || typeof ytPlayerInstance.loadVideoById !== 'function') return;
-        playerDock.classList.remove('hidden');
+        if (playerDock) playerDock.classList.remove('hidden');
 
         if (activeTrackContext && activeTrackContext._id === track._id) {
             const state = ytPlayerInstance.getPlayerState();
@@ -254,10 +266,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         activeTrackContext = track;
-        dockTitle.textContent = track.title;
-        dockProducer.textContent = track.producer;
-        dockThumb.src = track.thumbnail || `https://img.youtube.com/vi/${track.youtubeId}/mqdefault.jpg`;
-        dockPlayBtn.textContent = '⏳';
+        if (dockTitle) dockTitle.textContent = track.title;
+        if (dockProducer) dockProducer.textContent = track.producer;
+        if (dockThumb) dockThumb.src = track.thumbnail || `https://img.youtube.com/vi/${track.youtubeId}/mqdefault.jpg`;
+        if (dockPlayBtn) dockPlayBtn.textContent = '⏳';
 
         updateLikeDockIcon();
         ytPlayerInstance.loadVideoById(track.youtubeId);
@@ -265,63 +277,111 @@ document.addEventListener('DOMContentLoaded', () => {
         if (sessionUserToken) fetch(`${API_URL}/api/users/history`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${sessionUserToken}` }, body: JSON.stringify({ trackId: track._id }) });
     }
 
-    dockLoopBtn.addEventListener('click', () => { isLoopActive = !isLoopActive; dockLoopBtn.style.color = isLoopActive ? '#1db954' : '#ffffff'; });
-    dockPlayBtn.addEventListener('click', () => {
-        if (!activeTrackContext) return;
-        if (ytPlayerInstance.getPlayerState() === YT.PlayerState.PLAYING) ytPlayerInstance.pauseVideo();
-        else ytPlayerInstance.playVideo();
-    });
-    document.getElementById('volume-slider').addEventListener('input', (e) => ytPlayerInstance && ytPlayerInstance.setVolume(e.target.value));
+    if (dockLoopBtn) {
+        dockLoopBtn.addEventListener('click', () => { isLoopActive = !isLoopActive; dockLoopBtn.style.color = isLoopActive ? '#1db954' : '#ffffff'; });
+    }
+    if (dockPlayBtn) {
+        dockPlayBtn.addEventListener('click', () => {
+            if (!activeTrackContext) return;
+            if (ytPlayerInstance.getPlayerState() === YT.PlayerState.PLAYING) ytPlayerInstance.pauseVideo();
+            else ytPlayerInstance.playVideo();
+        });
+    }
+    
+    const volSlider = document.getElementById('volume-slider');
+    if (volSlider) {
+        volSlider.addEventListener('input', (e) => ytPlayerInstance && ytPlayerInstance.setVolume(e.target.value));
+    }
 
     // --- IDENTITY / AUTH ---
     async function verifyUserSession() {
-        if (!sessionUserToken) return;
+        if (!sessionUserToken) {
+            setupAuthTriggerListener();
+            return;
+        }
         try {
             const res = await fetch(`${API_URL}/api/auth/me`, { headers: { 'Authorization': `Bearer ${sessionUserToken}` } });
-            if (res.ok) { authenticatedUserData = await res.json(); renderUserAccountInterface(); }
-            else clearSessionData();
-        } catch (e) { clearSessionData(); }
+            if (res.ok) { 
+                authenticatedUserData = await res.json(); 
+                renderUserAccountInterface(); 
+            } else {
+                clearSessionData();
+            }
+        } catch (e) { 
+            clearSessionData(); 
+        }
     }
 
     function renderUserAccountInterface() {
+        if (!userPanel) return;
         userPanel.innerHTML = `<div class="profile-badge"><span class="username-txt">👤 ${authenticatedUserData.username}</span><button id="logout-btn" class="logout-btn">Exit</button></div>`;
-        document.getElementById('logout-btn').addEventListener('click', clearSessionData);
-        // Force re-renders to show active like/subscribe states
-        if(!views['view-home'].classList.contains('hidden')) executeCatalogSynchronization();
-        if(!views['view-producer'].classList.contains('hidden')) loadProducerProfile(currentViewedProducer);
+        
+        const logoutBtn = document.getElementById('logout-btn');
+        if (logoutBtn) logoutBtn.addEventListener('click', clearSessionData);
+        
+        if(views['view-home'] && !views['view-home'].classList.contains('hidden')) executeCatalogSynchronization();
+        if(views['view-producer'] && !views['view-producer'].classList.contains('hidden')) loadProducerProfile(currentViewedProducer);
     }
 
     function clearSessionData() {
         localStorage.removeItem('melodify_jwt');
-        sessionUserToken = null; authenticatedUserData = null;
-        userPanel.innerHTML = `<button id="auth-trigger-btn" class="nav-btn">Sign In</button>`;
-        document.getElementById('auth-trigger-btn').addEventListener('click', openModal);
+        sessionUserToken = null; 
+        authenticatedUserData = null;
+        if (userPanel) userPanel.innerHTML = `<button id="auth-trigger-btn" class="nav-btn">Sign In</button>`;
+        setupAuthTriggerListener();
         switchView('view-home');
         executeCatalogSynchronization();
     }
 
-    const openModal = () => authModal.classList.remove('hidden');
-    document.getElementById('close-modal-btn').addEventListener('click', () => authModal.classList.add('hidden'));
-    if(authTriggerBtn) authTriggerBtn.addEventListener('click', openModal);
+    function setupAuthTriggerListener() {
+        const authTriggerBtn = document.getElementById('auth-trigger-btn');
+        if (authTriggerBtn) authTriggerBtn.addEventListener('click', openModal);
+    }
 
-    document.getElementById('auth-toggle-link').addEventListener('click', (e) => {
-        e.preventDefault();
-        currentAuthMode = currentAuthMode === 'login' ? 'register' : 'login';
-        document.getElementById('modal-headline').textContent = currentAuthMode === 'login' ? 'Sign In' : 'Create Account';
-        document.getElementById('auth-submit-action').textContent = currentAuthMode === 'login' ? 'Continue' : 'Register';
-        document.getElementById('auth-toggle-prompt').innerHTML = currentAuthMode === 'login' ? `Don't have an account? <a href="#" id="auth-toggle-link">Register</a>` : `Already a member? <a href="#" id="auth-toggle-link">Sign In</a>`;
-    });
+    const openModal = () => { if (authModal) authModal.classList.remove('hidden'); };
+    
+    const closeModalBtn = document.getElementById('close-modal-btn');
+    if (closeModalBtn) closeModalBtn.addEventListener('click', () => { if (authModal) authModal.classList.add('hidden'); });
 
-    document.getElementById('auth-form').addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const endpoint = currentAuthMode === 'login' ? '/api/auth/login' : '/api/auth/register';
-        try {
-            const res = await fetch(`${API_URL}${endpoint}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: document.getElementById('auth-username').value, password: document.getElementById('auth-password').value }) });
-            const data = await res.json();
-            if (res.ok) { localStorage.setItem('melodify_jwt', data.token); sessionUserToken = data.token; await verifyUserSession(); authModal.classList.add('hidden'); }
-            else alert(data.message || "Authorization error.");
-        } catch (err) { alert("Authorization network timeout."); }
-    });
+    const authToggleLink = document.getElementById('auth-toggle-link');
+    if (authToggleLink) {
+        authToggleLink.addEventListener('click', (e) => {
+            e.preventDefault();
+            currentAuthMode = currentAuthMode === 'login' ? 'register' : 'login';
+            document.getElementById('modal-headline').textContent = currentAuthMode === 'login' ? 'Sign In to Melodify' : 'Create Account';
+            document.getElementById('auth-submit-action').textContent = currentAuthMode === 'login' ? 'Continue' : 'Register';
+            document.getElementById('auth-toggle-prompt').innerHTML = currentAuthMode === 'login' ? `Don't have an account? <a href="#" id="auth-toggle-link">Register</a>` : `Already a member? <a href="#" id="auth-toggle-link">Sign In</a>`;
+        });
+    }
+
+    const authForm = document.getElementById('auth-form');
+    if (authForm) {
+        authForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const endpoint = currentAuthMode === 'login' ? '/api/auth/login' : '/api/auth/register';
+            try {
+                const res = await fetch(`${API_URL}${endpoint}`, { 
+                    method: 'POST', 
+                    headers: { 'Content-Type': 'application/json' }, 
+                    body: JSON.stringify({ 
+                        username: document.getElementById('auth-username').value, 
+                        password: document.getElementById('auth-password').value 
+                    }) 
+                });
+                const data = await res.json();
+                if (res.ok) { 
+                    localStorage.setItem('melodify_jwt', data.token); 
+                    sessionUserToken = data.token; 
+                    await verifyUserSession(); 
+                    if (authModal) authModal.classList.add('hidden'); 
+                } else {
+                    alert(data.message || "Authorization error.");
+                }
+            } catch (err) { 
+                alert("Authorization network timeout."); 
+            }
+        });
+    }
 
     async function toggleTrackLikeStatus(trackId) {
         if (!sessionUserToken) return openModal();
@@ -337,18 +397,20 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function updateLikeDockIcon() {
-        if (!activeTrackContext) return;
+        if (!activeTrackContext || !dockLikeBtn) return;
         const isLiked = authenticatedUserData && authenticatedUserData.likedTracks.includes(activeTrackContext._id);
-        dockLikeBtn.textContent = isLiked ? '❤️' : '♡'; dockLikeBtn.style.color = isLiked ? '#1db954' : '#fff';
+        dockLikeBtn.textContent = isLiked ? '❤️' : '♡'; 
+        dockLikeBtn.style.color = isLiked ? '#1db954' : '#fff';
     }
-    dockLikeBtn.addEventListener('click', () => { if (activeTrackContext) toggleTrackLikeStatus(activeTrackContext._id); });
+    if (dockLikeBtn) dockLikeBtn.addEventListener('click', () => { if (activeTrackContext) toggleTrackLikeStatus(activeTrackContext._id); });
 
     const executeSearchAction = () => {
+        if (!searchInput) return;
         const query = searchInput.value.trim();
         if (query) executeCatalogSynchronization(`?q=${encodeURIComponent(query)}`);
     };
-    searchBtn.addEventListener('click', executeSearchAction);
-    searchInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') executeSearchAction(); });
+    if (searchBtn) searchBtn.addEventListener('click', executeSearchAction);
+    if (searchInput) searchInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') executeSearchAction(); });
 
     verifyUserSession().then(() => executeCatalogSynchronization());
 });
