@@ -1,41 +1,89 @@
-// 1. Asynchronously fetch the official YouTube script components
+// Load the YouTube Frame asset logic asynchronously
 const tag = document.createElement('script');
 tag.src = "https://www.youtube.com/iframe_api";
 const firstScriptTag = document.getElementsByTagName('script')[0];
 firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
 
 let player;
+let isPlayerReady = false;
+
 function onYouTubeIframeAPIReady() {
     player = new YT.Player('player', {
-        height: '360',
-        width: '100%',
-        videoId: 'dQw4w9WgXcQ', // Default video fallback
+        height: '1',
+        width: '1',
+        videoId: 'dQw4w9WgXcQ', // Initial default stream track hook
         playerVars: {
             'playsinline': 1,
             'enablejsapi': 1,
-            'origin': window.location.origin
+            'origin': window.location.origin,
+            'controls': 0,
+            'disablekb': 1
         },
         events: {
-            'onReady': () => console.log("YouTube API client handshake established cleanly.")
+            'onReady': () => {
+                isPlayerReady = true;
+                console.log("Audio pipeline initialized securely.");
+                document.getElementById('player-title').innerText = "FLY (Audio Feed)";
+                document.getElementById('player-artist').innerText = "CG5";
+            },
+            'onStateChange': onPlayerStateChange
         }
     });
 }
 
-// 2. Fetch tracks securely from the /feed route configuration namespace
-async function bootstrapApplicationFeed() {
-    const statusText = document.getElementById('status-node');
-    try {
-        // FIXED PATH: Points to our Express routing endpoint structure mapping
-        const response = await fetch('/feed/tracks');
-        if (!response.ok) throw new Error("Server communication drop.");
-        
-        const data = await response.json();
-        if (statusText) statusText.style.display = 'none'; // Clear out message indicator
-        console.log("Database catalog items mounted:", data);
-    } catch (err) {
-        console.error("Interface execution track sync dropped:", err.message);
-        if (statusText) statusText.innerText = "Database tracks currently offline.";
+function onPlayerStateChange(event) {
+    const disk = document.getElementById('disk-element');
+    if (event.data === YT.PlayerState.PLAYING) {
+        if (disk) disk.classList.add('spinning');
+    } else {
+        if (disk) disk.classList.remove('spinning');
     }
 }
 
-document.addEventListener('DOMContentLoaded', bootstrapApplicationFeed);
+// Attach UI Event controllers
+document.addEventListener('DOMContentLoaded', () => {
+    const playBtn = document.getElementById('play-btn');
+    const pauseBtn = document.getElementById('pause-btn');
+
+    if (playBtn) {
+        playBtn.addEventListener('click', () => {
+            if (isPlayerReady && player) player.playVideo();
+        });
+    }
+
+    if (pauseBtn) {
+        pauseBtn.addEventListener('click', () => {
+            if (isPlayerReady && player) player.pauseVideo();
+        });
+    }
+
+    // Load available songs from stream registry routes
+    fetchTracks();
+});
+
+async function fetchTracks() {
+    const container = document.getElementById('catalog-view');
+    try {
+        const response = await fetch('/feed/tracks');
+        const tracks = await response.json();
+        
+        if (container) {
+            container.innerHTML = '';
+            tracks.forEach(track => {
+                const item = document.createElement('div');
+                item.className = 'track-item';
+                item.innerHTML = `<strong>${track.title}</strong> — ${track.producer}`;
+                item.addEventListener('click', () => {
+                    if (isPlayerReady && player) {
+                        player.loadVideoById(track.youtubeId);
+                        document.getElementById('player-title').innerText = track.title;
+                        document.getElementById('player-artist').innerText = track.producer;
+                    }
+                });
+                container.appendChild(item);
+            });
+        }
+    } catch (err) {
+        if (container) container.innerHTML = '<p class="gray-text">Failed to fetch dynamic tracks items.</p>';
+    }
+}
